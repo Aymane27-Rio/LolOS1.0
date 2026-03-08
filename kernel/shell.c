@@ -6,6 +6,7 @@
 #include "../include/shell.h"
 #include "../include/cpu.h"
 #include "../include/ata.h"
+#include "../include/fs.h"
 
 // keyboard driver
 char get_keypress();
@@ -32,6 +33,7 @@ void sleep(int seconds) {
 }
 // the main shell loop
 void start_shell() {
+    fs_init(); // booting the FS
     while (1) {
         char key = get_keypress();
         if (key != 0){
@@ -55,9 +57,13 @@ void start_shell() {
                         }
                     }
                     // commands
-                    if (strcmp(command_buffer, "help") == 0){
-                        print_string("Commands: help, clear, echo, theme, time, date, sleep, sysinfo, reboot, shutdown, disktest\n");
-                    } 
+                    if (strcmp(command_buffer, "help") == 0) {
+                        print_string("\n--- LolOS Command Reference ---\n");
+                        print_string(" SYSTEM : help, clear, sysinfo, reboot, shutdown\n");
+                        print_string(" UTILS  : echo, theme, time, date, sleep\n");
+                        print_string(" DISK   : disktest, ls, touch, write, cat, rm\n");
+                        print_string("-------------------------------\n");
+                    }
                     else if (strcmp(command_buffer, "clear") == 0) {
                         terminal_clear();
                     } 
@@ -129,6 +135,49 @@ void start_shell() {
                         ata_read_sector(1, read_buf); //read from LBA 1
                         print_string((char*)read_buf);
                         print_char('\n');
+                    }
+                    else if (strcmp(command_buffer, "ls") == 0) {
+                        fs_list_files();
+                    }
+                    else if (strcmp(command_buffer, "touch") == 0) {
+                        if (args != 0) {
+                            fs_create_file(args);
+                        } else {
+                            print_string("Usage: touch [filename]\n");
+                        }
+                    }
+                    else if (strcmp(command_buffer, "write") == 0) {
+                        if (args != 0) {
+                            char* content = 0;
+                            for (int i = 0; args[i] != '\0'; i++) {
+                                if (args[i] == ' ') {
+                                    args[i] = '\0'; // splitting the string to separate filename and content
+                                    content = &args[i + 1];
+                                    break;
+                                }
+                            }
+                            if (content != 0) {
+                                fs_write_file(args, content);
+                            } else {
+                                print_string("Usage: write [filename] [text]\n");
+                            }
+                        } else {
+                            print_string("Usage: write [filename] [text]\n");
+                        }
+                    }
+                    else if (strcmp(command_buffer, "cat") == 0) {
+                        if (args != 0) {
+                            fs_read_file(args);
+                        } else {
+                            print_string("Usage: cat [filename]\n");
+                        }
+                    }
+                    else if (strcmp(command_buffer, "rm") == 0) {
+                        if (args != 0) {
+                            fs_delete_file(args);
+                        } else {
+                            print_string("Usage: rm [filename]\n");
+                        }
                     }
                     else {
                         print_string("Unknown command: ");
