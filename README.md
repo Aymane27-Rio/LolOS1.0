@@ -20,6 +20,9 @@ To build and run LolOs locally, you need the following installed on a Linux envi
 * `build-essential` (GCC, Make)
 * `nasm` (Assembler)
 * `qemu-system-x86` (Emulator for testing)
+* **ISO Generation Tools**: `xorriso, grub-pc-bin, grub-common, mtools`
+
+You can install these on Ubuntu via `sudo apt install build-essential nasm qemu-system-x86 xorriso grub-pc-bin grub-common mtools`
 
 ## Build and Run (for devs and contributing)
 Clone the repository and use the included Makefile:
@@ -36,8 +39,8 @@ Clone the repository and use the included Makefile:
 ## Or if you're just curious (no compilation whatsoever required)
 1. Go to the **Actions** tab at the top of this GitHub repository.
 2. Click on the latest successful workflow run.
-3. Scroll down to the **Artifacts** section and download the `.zip` file containing `myos.bin`.
+3. Scroll down to the **Artifacts** section and download the `.zip` file containing `myos.iso`.
 4. Extract the file and boot it using QEMU:
    ```bash
-   qemu-system-i386 -kernel myos.bin
+   qemu-system-i386 -cdrom myos.iso
    ```

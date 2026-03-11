@@ -1,84 +1,51 @@
-#include <stdint.h>
-#include "../include/io.h"
 #include "../include/terminal.h"
-#include "../include/string.h"
+#include "../include/graphics.h"
 
 int cursor_x = 0;
 int cursor_y = 0;
-volatile uint16_t* vga_buffer = (uint16_t*)0xB8000;
+uint32_t term_color = 0x00FFFFFF; 
+uint32_t bg_color   = 0x001E1E1E; 
 
-uint8_t terminal_color = 0x0F;
-
-void update_cursor(int x, int y) {
-    uint16_t pos = y * 80 + x; 
-    outb(0x3D4, 0x0F);
-    outb(0x3D5, (uint8_t)(pos & 0xFF));
-    outb(0x3D4, 0x0E);
-    outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
-}
-// hacker theme, lol
-void terminal_apply_theme(uint8_t color){
-    terminal_color = color;
-    for (int i = 0; i < 2000; i++){
-        uint16_t character = vga_buffer[i] & 0x00FF;
-        vga_buffer[i] = character | (terminal_color << 8);
-    }
+void terminal_init(){
+    terminal_clear();
 }
 
-void scroll() {
-    for (int y = 0; y < 24; y++) {
-        for (int x = 0; x < 80; x++) {
-            vga_buffer[y * 80 + x] = vga_buffer[(y + 1) * 80 + x];
-        }
-    }
-    uint16_t blank = (uint16_t)' ' | (uint16_t)terminal_color << 8;
-    memsetw((uint16_t*)(vga_buffer + 24 * 80), blank, 80);
-    cursor_y = 24;
-}
-
-void terminal_clear() {
-    uint16_t blank = (uint16_t)' ' | (uint16_t)terminal_color << 8;
-    memsetw((uint16_t*)vga_buffer, blank, 2000);
+void terminal_clear(){
+    draw_rect(0, 0, 800, 600, bg_color);
     cursor_x = 0;
     cursor_y = 0;
-    update_cursor(0, 0);
 }
 
-void terminal_init() {
-    terminal_clear();
-    const char* logo =
-    " _          _  ___      \n"
-    "| |    ___ | |/ _ \\ ___ \n"
-    "| |   / _ \\| | | | / __|\n"
-    "| |__| (_) | | |_| \\__ \\\n"
-    "|_____\\___/|_|\\___/|___/\n"
-    "                CLI v0.3\n\n> ";
 
-    print_string(logo);
+void terminal_apply_theme(uint8_t color){
+    if (color == 0x0A) term_color = 0x0000FF00;   
+    else if (color == 0x09) term_color = 0x000088FF; 
+    else if (color == 0x0C) term_color = 0x00FF0000; 
+    else term_color = 0x00FFFFFF;                    
 }
+
 
 void print_char(char c) {
     if (c == '\n') {
         cursor_x = 0;
-        cursor_y++;
+        cursor_y += 8;
     } else if (c == '\b') {
-        if (cursor_x > 0) {
-            cursor_x--;
-            vga_buffer[cursor_y * 80 + cursor_x] = (uint16_t)' ' | (uint16_t)terminal_color << 8;
+        if (cursor_x >= 8) {
+            cursor_x -= 8;
+            draw_rect(cursor_x, cursor_y, 8, 8, bg_color);
         }
     } else {
-        vga_buffer[cursor_y * 80 + cursor_x] = (uint16_t)c | (uint16_t)terminal_color << 8;
-        cursor_x++;
+        draw_char(c, cursor_x, cursor_y, term_color);
+        cursor_x += 8;
     }
 
-    if (cursor_x >= 80) {
+    if (cursor_x >= 800) {
         cursor_x = 0;
-        cursor_y++;
+        cursor_y += 8;
     }
-    if (cursor_y >= 25) {
-        scroll();
+    if (cursor_y >= 600) {
+        terminal_clear();
     }
-    update_cursor(cursor_x, cursor_y);
 }
 
 void print_string(const char* str) {
@@ -91,8 +58,15 @@ void print_time_number(int num) {
     if (num < 10) {
         print_char('0'); 
     }
-    if (num >= 10) {
-        print_char((num / 10) + '0'); 
+    char buf[10];
+    int i = 0;
+    if (num ==0) buf[i++] = '0';
+    while (num > 0) {
+        buf[i++] = (num % 10) + '0';
+        num /= 10;
     }
-    print_char((num % 10) + '0');
+    while (i > 0){
+        i--;
+        print_char(buf[i]);
+    }
 }
