@@ -16,7 +16,7 @@ jobs:
 
     - name: Install Dependencies
       # gcc-multilib is needed to compile 32-bit code on a 64-bit runner
-      run: sudo apt-get update && sudo apt-get install -y nasm gcc-multilib
+      run: sudo apt-get update && sudo apt-get install -y xorriso grub-pc-bin grub-common mtools
 
     - name: Build OS
       run: make
