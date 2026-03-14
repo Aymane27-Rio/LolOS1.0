@@ -3,12 +3,17 @@
 #include "../include/multiboot.h"
 #include "../include/graphics.h"
 #include "../include/mouse.h"
+#include "../include/pmm.h"
+#include "../include/paging.h"
 
 void kmain(uint32_t magic, multiboot_info_t* mbd) {
     if (magic != 0x2BADB002) {
         return;
     }
     init_graphics(mbd);
+    uint32_t total_mem_kb = mbd->mem_lower + mbd->mem_upper;
+    pmm_init(total_mem_kb);
+    init_paging((uint32_t)mbd->framebuffer_addr);
     terminal_init();
     mouse_init();
     draw_rect(0, 0, 800, 20, 0x00333333);

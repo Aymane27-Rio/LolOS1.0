@@ -9,6 +9,7 @@
 #include "../include/fs.h"
 #include "../include/mouse.h"
 #include "../include/graphics.h"
+#include "../include/pmm.h"
 
 // keyboard driver
 char get_keypress();
@@ -72,8 +73,8 @@ void start_shell() {
                     // commands
                     if (strcmp(command_buffer, "help") == 0) {
                         print_string("\n--- LolOS Command Reference ---\n");
-                        print_string(" SYSTEM : help, clear, sysinfo, reboot, shutdown\n");
-                        print_string(" UTILS  : echo, theme, time, date, sleep\n");
+                        print_string(" SYSTEM : help, clear, sysinfo, meminfo, reboot, shutdown\n");
+                        print_string(" UTILS  : echo, theme, time, date, sleep, alloc\n");
                         print_string(" DISK   : disktest, ls, touch, write, cat, rm\n");
                         print_string("-------------------------------\n");
                     }
@@ -190,6 +191,22 @@ void start_shell() {
                             fs_delete_file(args);
                         } else {
                             print_string("Usage: rm [filename]\n");
+                        }
+                    }
+                    else if (strcmp(command_buffer, "meminfo") == 0) {
+                        print_string("Free Physical Memory: ");
+                        // divide by 1024 to convert from KB to MB for easier reading
+                        print_time_number(pmm_get_free_memory() / 1024);
+                        print_string(" KB\n");
+                    }
+                    else if (strcmp(command_buffer, "alloc") == 0) {
+                        void* ptr = pmm_alloc_block();
+                        if (ptr != 0) {
+                            print_string("Success! Allocated 4KB block at Physical Address: ");
+                            print_time_number((int)(uint32_t)ptr); 
+                            print_string("\n");
+                        } else {
+                            print_string("CRITICAL: Out of Memory!\n");
                         }
                     }
                     else {
