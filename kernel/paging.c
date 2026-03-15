@@ -11,18 +11,18 @@ void map_page(uint32_t physical_addr, uint32_t virtual_addr) {
     if ((page_directory[pd_index] & 1) == 0) {
         uint32_t* new_table = (uint32_t*)pmm_alloc_block();
         for(int i = 0; i < 1024; i++) {
-            new_table[i] = 2; 
+            new_table[i] = 6; 
         }
-        page_directory[pd_index] = ((uint32_t)new_table) | 3; 
+        page_directory[pd_index] = ((uint32_t)new_table) | 7; 
     }
     uint32_t* page_table = (uint32_t*)(page_directory[pd_index] & ~0xFFF);
-    page_table[pt_index] = (physical_addr & ~0xFFF) | 3;
+    page_table[pt_index] = (physical_addr & ~0xFFF) | 7;
 }
 
 void init_paging(uint32_t framebuffer_addr){
     page_directory = (uint32_t*)pmm_alloc_block();
     for(int i = 0; i < 1024; i++) {
-        page_directory[i] = 2; // not Present, Read/Write
+        page_directory[i] = 6; // not Present, Read/Write
     }
     for (uint32_t i = 0; i < 4 * 1024 * 1024; i += 4096) {
         map_page(i, i);
@@ -35,10 +35,8 @@ void init_paging(uint32_t framebuffer_addr){
     __asm__ volatile (
         "mov %0, %%cr3\n\t"
         "mov %%cr0, %%eax\n\t"
-        "or $0x80000000, %%eax\n\t" // Flip Bit 31 (Paging Enable)
+        "or $0x80000000, %%eax\n\t"
         "mov %%eax, %%cr0"
-        : 
-        : "r" (page_directory) 
-        : "eax"
+        : : "r" (page_directory) : "eax"
     );
 }

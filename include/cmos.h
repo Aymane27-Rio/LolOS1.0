@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+uint8_t get_rtc_register(int reg);
+void get_real_time(uint8_t* h, uint8_t* m, uint8_t* s);
+
 #define RTC_SECONDS 0x00
 #define RTC_MINUTES 0x02
 #define RTC_HOURS   0x04

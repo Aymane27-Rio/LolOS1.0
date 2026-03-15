@@ -42,3 +42,20 @@ isr32:
     call timer_handler ; jump to our C code
     popa              ; restore all registers perfectly
     iretd             ; special 'Interrupt Return' instruction
+
+global isr128
+extern syscall_handler
+
+isr128:
+    pusha                 ; save all the registers
+    
+    push edx
+    push ecx
+    push ebx
+    push eax
+    
+    call syscall_handler  ; jump into the Kernel's C code
+    
+    add esp, 16           ; clean up the pushed 4 arguments (4 bytes each)
+    popa                  ; restore all registers
+    iretd                 ; return to user mode
