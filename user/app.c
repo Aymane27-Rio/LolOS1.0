@@ -7,9 +7,17 @@ void print(char* str) {
     );
 }
 
+void exit() {
+    __asm__ volatile (
+        "mov $2, %%eax\n\t"
+        "int $0x80\n\t"
+        : : : "eax"
+    );
+}
+
 void _start() {
     print("\n\n  *** HELLO FROM A STANDALONE ELF EXECUTABLE! ***\n");
     print("  Running securely in Ring 3 User Space.\n");
-
-    while(1); 
+    print("  Task complete. Requesting Kernel termination...\n");
+    exit();
 }

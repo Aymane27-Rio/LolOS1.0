@@ -23,29 +23,13 @@ typedef struct {
     uint32_t string;
     uint32_t reserved;
 } multiboot_module_t;
+multiboot_info_t* global_mbd = 0;
 
-
-void kmain(uint32_t magic, multiboot_info_t* mbd) {
-    if (magic != 0x2BADB002) {
-        return;
-    }
-    init_graphics(mbd);
-    uint32_t total_mem_kb = mbd->mem_lower + mbd->mem_upper;
-    pmm_init(total_mem_kb);
-    init_paging((uint32_t)mbd->framebuffer_addr);
-    terminal_init();
-    mouse_init();
-    init_gdt();
-    init_idt();                
-    pic_remap();                                   
-    idt_set_gate(32, (uint32_t)isr32, 0x08, 0x8E); 
-    idt_set_gate(128, (uint32_t)isr128, 0x08, 0xEE);
-    __asm__ volatile ("sti");
-    draw_rect(0, 0, 800, 20, 0x00333333);
-    draw_icon(770, 2, 0x0000FF00);
-
+void start_desktop() {
+    draw_rect(0, 0, 800, 20, 0x00333333);          
+    draw_icon(770, 2, 0x0000FF00);                 
     draw_terminal_icon(20, 40, 0x00FFFFFF);
-    draw_string("CLI", 14, 60, 0x00FFFFFF);
+    draw_string("CLI", 14, 60, 0x00FFFFFF);        
 
     int32_t old_mx = mouse_x;
     int32_t old_my = mouse_y;
@@ -54,8 +38,6 @@ void kmain(uint32_t magic, multiboot_info_t* mbd) {
     uint8_t old_left_click = 0;
     uint32_t last_click_time = 0;
     uint32_t last_clock_update = 0;
-
-
     while (1) {
         // --- MULTITASKING: UPDATE THE CLOCK EVERY SECOND ---
         // 100 ticks = 1 second of hardware interrupts
@@ -86,8 +68,8 @@ void kmain(uint32_t magic, multiboot_info_t* mbd) {
                     if (timer_ticks - last_click_time < 50) {
                         restore_cursor_bg(old_mx, old_my); 
                         terminal_clear(); 
-                        if (mbd->mods_count > 0) {
-                            multiboot_module_t* mod = (multiboot_module_t*)mbd->mods_addr;
+                        if (global_mbd->mods_count > 0) {
+                            multiboot_module_t* mod = (multiboot_module_t*)global_mbd->mods_addr;
                             uint8_t* elf_file_in_ram = (uint8_t*)mod->mod_start;
                             
                             print_string("Loading User Space Executable...\n");
@@ -102,4 +84,28 @@ void kmain(uint32_t magic, multiboot_info_t* mbd) {
             old_left_click = left_click;
         }
     }
+}
+
+
+
+void kmain(uint32_t magic, multiboot_info_t* mbd) {
+    if (magic != 0x2BADB002) {
+        return;
+    }
+    global_mbd = mbd;
+    init_graphics(mbd);
+    uint32_t total_mem_kb = mbd->mem_lower + mbd->mem_upper;
+    pmm_init(total_mem_kb);
+    init_paging((uint32_t)mbd->framebuffer_addr);
+    terminal_init();
+    mouse_init();
+    init_gdt();
+    init_idt();                
+    pic_remap();                                   
+    idt_set_gate(32, (uint32_t)isr32, 0x08, 0x8E); 
+    idt_set_gate(128, (uint32_t)isr128, 0x08, 0xEE);
+    __asm__ volatile ("sti");
+    start_desktop(mbd);
+
+    
 }
