@@ -37,11 +37,15 @@ int handle_mouse_packet() {
     
     // check if data is ready AND if the 6th bit is set (which means it's mouse data, not keyboard)
     if ((status & 1) && (status & 0x20)) { 
-        mouse_byte[mouse_cycle++] = inb(0x60);
+        uint8_t mouse_in = inb(0x60);
+        if (mouse_cycle == 0 && !(mouse_in & 0x08)) {
+            return 0; 
+        }
+        mouse_byte[mouse_cycle++] = mouse_in;
         if (mouse_cycle == 3) {
             mouse_cycle = 0;
             left_click = mouse_byte[0] & 0x01;
-            int sensitivity = 2; // adjust this value to make the mouse faster or slower
+            int sensitivity = 1; // adjust this value to make the mouse faster or slower
             mouse_x += (mouse_byte[1] * sensitivity);
             mouse_y -= (mouse_byte[2] * sensitivity); 
             if (mouse_x < 0) mouse_x = 0;

@@ -171,3 +171,16 @@ void draw_terminal_icon(uint32_t x, uint32_t y, uint32_t color) {
         }
     }
 }
+
+void draw_window(uint32_t x, uint32_t y, uint32_t w, uint32_t h, char* title) {
+    draw_rect(x, y, w, h, 0x001E1E1E);
+
+    draw_rect(x, y, w, 1, 0x00AAAAAA);           
+    draw_rect(x, y + h, w, 1, 0x00AAAAAA);       
+    draw_rect(x, y, 1, h, 0x00AAAAAA);           
+    draw_rect(x + w, y, 1, h + 1, 0x00AAAAAA);  
+    draw_rect(x + 1, y + 1, w - 2, 22, 0x00333333);
+    draw_string(title, x + 8, y + 8, 0x00FFFFFF);
+    draw_rect(x + w - 22, y + 4, 16, 16, 0x00FF4444);
+    draw_string("X", x + w - 18, y + 8, 0x00FFFFFF);
+}

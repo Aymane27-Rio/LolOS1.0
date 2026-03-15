@@ -4,17 +4,16 @@
 #include "../include/paging.h"
 
 // dynamic ring 3 drop
-void jump_to_ring3(uint32_t entry_point) {
+void jump_to_ring3(uint32_t entry_point, uint32_t user_stack) {
     __asm__ volatile(
         "cli\n\t"
         "mov $0x23, %%ax\n\t"
         "mov %%ax, %%ds\n\t"
         "mov %%ax, %%es\n\t"
         "mov %%ax, %%fs\n\t"
-        "mov %%ax, %%gs\n\t"
-        "mov %%esp, %%eax\n\t" 
+        "mov %%ax, %%gs\n\t" 
         "pushl $0x23\n\t"      
-        "pushl %%eax\n\t"      
+        "pushl %1\n\t"      
         "pushf\n\t"           
         "popl %%eax\n\t"
         "or $0x200, %%eax\n\t" 
@@ -22,7 +21,7 @@ void jump_to_ring3(uint32_t entry_point) {
         "pushl $0x1B\n\t"      
         "pushl %0\n\t"
         "iret\n\t"
-        : : "r" (entry_point) : "eax", "memory"
+        : : "r" (entry_point), "r" (user_stack) : "eax", "memory"
     );
 }
 
@@ -51,5 +50,8 @@ void load_elf_and_execute(uint8_t* file_buffer) {
             }
         }
     }
-    jump_to_ring3(header->entry);
+    uint32_t user_stack_phys = (uint32_t)pmm_alloc_block();
+    uint32_t user_stack_virt = 0x80000000;
+    map_page(user_stack_phys, user_stack_virt);
+    jump_to_ring3(header->entry, user_stack_virt + 4096);
 }
