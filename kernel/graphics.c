@@ -6,9 +6,13 @@ uint32_t pitch;
 uint32_t width;
 uint32_t height;
 
+static uint32_t back_buffer[800 * 600]; // for double buffering, feel free to change the resolution if you want
+static uint32_t* real_screen;
+
 void init_graphics(multiboot_info_t* mbd) {
     // cast the 64-bit physical address to a 32-bit pointer
-    framebuffer = (uint32_t*) (uint32_t) mbd->framebuffer_addr;
+    real_screen = (uint32_t*)(uint32_t)mbd->framebuffer_addr;
+    framebuffer = back_buffer;
     pitch = mbd->framebuffer_pitch;
     width = mbd->framebuffer_width;
     height = mbd->framebuffer_height;
@@ -183,4 +187,10 @@ void draw_window(uint32_t x, uint32_t y, uint32_t w, uint32_t h, char* title) {
     draw_string(title, x + 8, y + 8, 0x00FFFFFF);
     draw_rect(x + w - 22, y + 4, 16, 16, 0x00FF4444);
     draw_string("X", x + w - 18, y + 8, 0x00FFFFFF);
+}
+
+void swap_buffers() {
+    for (uint32_t i = 0; i < 800 * 600; i++) {
+        real_screen[i] = back_buffer[i];
+    }
 }

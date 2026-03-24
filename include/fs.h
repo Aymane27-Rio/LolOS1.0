@@ -17,5 +17,6 @@ void fs_list_files();
 void fs_write_file(char* name, char* data);
 void fs_read_file(char* name);
 void fs_delete_file(char* name);
+void vfs_lba_init();
 
 #endif

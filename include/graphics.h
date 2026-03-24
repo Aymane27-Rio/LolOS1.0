@@ -14,5 +14,6 @@ void restore_cursor_bg(uint32_t x, uint32_t y);
 void draw_cursor(uint32_t x, uint32_t y);
 void draw_terminal_icon(uint32_t x, uint32_t y, uint32_t color);
 void draw_window(uint32_t x, uint32_t y, uint32_t w, uint32_t h, char* title);
+void swap_buffers();
 
 #endif

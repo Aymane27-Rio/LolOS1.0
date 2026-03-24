@@ -40,6 +40,7 @@ void start_desktop() {
     uint8_t old_left_click = 0;
     uint32_t last_click_time = 0;
     uint32_t last_clock_update = 0;
+    swap_buffers();
     uint32_t win_x = 150;
     uint32_t win_y = 100;
     uint8_t is_dragging = 0;
@@ -59,6 +60,7 @@ void start_desktop() {
             clock_buf[6] = (s / 10) + '0'; clock_buf[7] = (s % 10) + '0';
             draw_rect(350, 2, 160, 16, 0x00333333); 
             draw_string(clock_buf, 350, 2, 0x00FFFFFF);
+            swap_buffers();
         }
         if (handle_mouse_packet()) {
             if (mouse_x != old_mx || mouse_y != old_my) {
@@ -130,6 +132,7 @@ void start_desktop() {
                 is_dragging = 0;
             }
             old_left_click = left_click;
+            swap_buffers();
         }
     }
 }

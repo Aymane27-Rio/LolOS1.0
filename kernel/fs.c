@@ -2,6 +2,7 @@
 #include "../include/ata.h"
 #include "../include/string.h"
 #include "../include/terminal.h"
+#include "../include/vfs.h"
 
 FileEntry directory[MAX_FILES];
 uint32_t next_free_lba = 2; // LBA 1 is the directory, so file data starts at LBA 2
@@ -124,4 +125,71 @@ void fs_delete_file(char* name) {
         }
     }
     print_string("Error: File not found.\n");
+}
+
+vfs_node_t lba_root_node;
+vfs_node_t current_file_node; 
+struct dirent dir_entry;      
+
+uint32_t lba_vfs_read(vfs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (strcmp(directory[i].name, node->name) == 0) {
+            if (offset >= directory[i].size) return 0; //end of file
+            //calculating how much we need to avoid overflowing
+            uint32_t read_size = size;
+            if (offset + size > directory[i].size) read_size = directory[i].size - offset;
+            uint8_t sec_buf[512];
+            ata_read_sector(directory[i].start_lba, sec_buf);
+            for (uint32_t j = 0; j < read_size; j++) {
+                buffer[j] = sec_buf[offset + j];
+            }
+            return read_size;
+        }
+    }
+    return 0; //not found case
+}
+
+struct dirent* lba_vfs_readdir(vfs_node_t* node, uint32_t index) {
+    (void)node; // unused parameter
+    if (index >= MAX_FILES) return 0;
+    if (directory[index].name[0] == 0) return 0; // empty entry
+    int j = 0;
+    while (directory[index].name[j] != '\0') {
+        dir_entry.name[j] = directory[index].name[j];
+        j++;
+    }
+    dir_entry.name[j] = '\0';
+    dir_entry.ino = index;
+    
+    return &dir_entry;
+}
+
+vfs_node_t* lba_vfs_finddir(vfs_node_t* node, char* name) {
+    (void)node;
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (strcmp(directory[i].name, name) == 0) {
+            int j = 0;
+            while (directory[i].name[j] != '\0') {
+                current_file_node.name[j] = directory[i].name[j];
+                j++;
+            }
+            current_file_node.name[j] = '\0';
+            current_file_node.flags = FS_FILE;
+            current_file_node.length = directory[i].size;
+            current_file_node.read = &lba_vfs_read; 
+            
+            return &current_file_node;
+        }
+    }
+    return 0;
+}
+
+void vfs_lba_init() {
+    fs_init(); 
+    lba_root_node.name[0] = '/';
+    lba_root_node.name[1] = '\0';
+    lba_root_node.flags = FS_DIRECTORY;
+    lba_root_node.readdir = &lba_vfs_readdir;
+    lba_root_node.finddir = &lba_vfs_finddir;
+    fs_root = &lba_root_node;
 }
