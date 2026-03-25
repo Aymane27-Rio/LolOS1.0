@@ -12,6 +12,8 @@
 #include "../include/cmos.h"
 #include "../include/syscall.h"
 #include "../include/elf.h"
+#include "../include/fs.h"
+#include "../include/vfs.h"
 
 extern void isr32();
 extern void isr128();
@@ -156,6 +158,28 @@ void kmain(uint32_t magic, multiboot_info_t* mbd) {
     idt_set_gate(32, (uint32_t)isr32, 0x08, 0x8E); 
     idt_set_gate(128, (uint32_t)isr128, 0x08, 0xEE);
     __asm__ volatile ("sti");
+    vfs_lba_init();
+    print_string("\n-- VFS mount test --\n");
+    if (fs_root != 0) {
+        struct dirent* dir_node = 0;
+        uint32_t file_index = 0;
+        while ((dir_node = vfs_readdir(fs_root, file_index)) != 0) {
+            print_string("VFS Found File: ");
+            print_string(dir_node->name);
+            print_string(" (Inode: ");
+            print_time_number(dir_node->ino); 
+            print_string(")\n");
+            
+            file_index++;
+        }
+        
+        if (file_index == 0) {
+            print_string("VFS is mounted, but the root directory is empty\n");
+        }
+    } else {
+        print_string("PANIC: VFS root is null\n");
+    }
+    print_string("----------------------\n\n");
     start_desktop(mbd);
 
     
