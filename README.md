@@ -15,6 +15,22 @@ LolOS is a lightweight, monolithic testbed operating system operating in 32-bit 
 * **Persistent Storage:** ATA PIO block device driver capable of reading/writing raw 512-byte sectors to a virtual hard drive.
 * **DevOps:** Automated CI/CD pipeline enforcing strict GCC compilation standards (`-Werror`).
 
+## Security and next steps
+
+This is still an experimental 32-bit kernel, not a secure general-purpose OS.
+It now has paging, ring-3 execution, and system calls, but those features need
+careful review before they can be treated as isolation boundaries. In
+particular, validate all ELF and filesystem lengths before use, constrain user
+memory mappings, validate syscall pointers, and test malformed disk images.
+
+The build disables compiler builtins, PIE/PIC, stack-protector instrumentation
+that lacks a kernel runtime, and unwind metadata. These settings make the
+freestanding assumptions explicit; they do not replace bounds checks,
+privilege checks, fuzzing, or code review. The next platform step is a
+deliberate x86_64 boot and memory-management migration, while keeping the
+current 32-bit image as a reference until the new path has repeatable CI boot
+coverage.
+
 ## Prerequisites
 To build and run LolOs locally, you need the following installed on a Linux environment (Ubuntu recommended):
 * `build-essential` (GCC, Make)

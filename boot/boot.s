@@ -29,10 +29,15 @@ extern kmain
 _start:
     cli             ; disable interrupts
     mov esp, stack_top ; set the cpu's stack pointer to the new memory
+    and esp, 0xFFFFFFF0
+    sub esp, 8       ; align the call site while leaving room for two arguments
     push ebx
     push eax
     call kmain      ; jump to the C code
-    hlt             ; halt the CPU if the C code finishes
+ .halt:
+    cli
+    hlt
+    jmp .halt
 
 global isr32
 extern timer_handler
