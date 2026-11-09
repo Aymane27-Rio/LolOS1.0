@@ -37,7 +37,7 @@ static inline uint8_t inb(uint16_t port)
 
 static void serial_putc(char character)
 {
-    uint32_t timeout = 1000000;
+    uint32_t timeout = 100000;
     while ((inb(COM1 + 5) & 0x20u) == 0 && --timeout != 0) {
         __asm__ volatile ("pause");
     }

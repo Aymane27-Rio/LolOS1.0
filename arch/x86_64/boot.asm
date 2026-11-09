@@ -89,7 +89,7 @@ _start32:
     jmp .halt
 
 serial_init:
-    ; COM1: 38400 baud, 8N1, FIFO enabled.
+    ; COM1: 115200 baud, 8N1, FIFO enabled.
     mov dx, 0x3F9
     xor al, al
     out dx, al
@@ -97,7 +97,7 @@ serial_init:
     mov al, 0x80
     out dx, al
     mov dx, 0x3F8
-    mov al, 0x03
+    mov al, 0x01
     out dx, al
     mov dx, 0x3F9
     xor al, al
