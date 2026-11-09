@@ -3,6 +3,7 @@
 #define COM1 0x3F8u
 #define MB2_BOOT_MAGIC 0x36D76289u
 #define IDENTITY_MAP_SIZE 0x40000000u
+#define COM1_TX_FIFO_SIZE 16u
 
 struct mb2_tag {
     uint32_t type;
@@ -35,12 +36,18 @@ static inline uint8_t inb(uint16_t port)
     return value;
 }
 
+static uint8_t serial_tx_pending;
+
 static void serial_putc(char character)
 {
-    while ((inb(COM1 + 5) & 0x20u) == 0) {
-        __asm__ volatile ("pause");
+    if (serial_tx_pending == 0u || serial_tx_pending == COM1_TX_FIFO_SIZE) {
+        while ((inb(COM1 + 5) & 0x20u) == 0u) {
+            __asm__ volatile ("pause");
+        }
+        serial_tx_pending = 0u;
     }
     outb(COM1, (uint8_t)character);
+    serial_tx_pending++;
 }
 
 static void serial_write(const char *text)
