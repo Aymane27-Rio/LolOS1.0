@@ -37,13 +37,10 @@ static inline uint8_t inb(uint16_t port)
 
 static void serial_putc(char character)
 {
-    uint32_t timeout = 100000;
-    while ((inb(COM1 + 5) & 0x20u) == 0 && --timeout != 0) {
+    while ((inb(COM1 + 5) & 0x20u) == 0) {
         __asm__ volatile ("pause");
     }
-    if (timeout != 0) {
-        outb(COM1, (uint8_t)character);
-    }
+    outb(COM1, (uint8_t)character);
 }
 
 static void serial_write(const char *text)

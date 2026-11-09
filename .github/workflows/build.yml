@@ -29,7 +29,7 @@ jobs:
 
     - name: Boot-check x86_64 checkpoint
       run: |
-        timeout 15s qemu-system-x86_64 \
+        timeout 10s qemu-system-x86_64 \
           -cdrom build/x86_64/lolos-x86_64.iso \
           -serial stdio -display none -no-reboot -no-shutdown \
           > x86_64-serial.log 2>&1 || true
