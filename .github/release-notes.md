@@ -5,7 +5,8 @@ secure operating system.
 ## Downloadable images
 
 - `lolos-x86_64-checkpoint.iso` boots through Multiboot 2, enters x86_64 long
-  mode, validates and prints the usable memory ranges over COM1, then halts.
+  mode, validates the memory-map entries, prints a short status over COM1, and
+  halts.
   It has no interactive shell, user mode, or device drivers.
 - `lolos-32bit-reference.iso` is the separate experimental 32-bit reference
   system. Its paging, ELF, syscall, filesystem, and storage paths are

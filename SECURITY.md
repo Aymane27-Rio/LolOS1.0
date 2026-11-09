@@ -50,8 +50,7 @@ the invariants above. The x86_64 bootstrap maps the first GiB with 2 MiB pages;
 those entries are supervisor-only, but writable and executable. That map is
 only for reaching the serial checkpoint and must be replaced before porting
 applications or device drivers. The x86_64 checkpoint validates the Multiboot 2
-handoff and memory-map tag and reports usable ranges, but does not yet use those
-ranges to allocate memory or construct mappings; its boot-info pointer must also
-fall within the currently mapped first GiB. The x86_64 checkpoint does not yet
-provide user mode, interrupts, memory allocation, filesystems, or a security
-boundary.
+handoff and memory-map tag, but does not yet use those ranges to allocate memory
+or construct mappings; its boot-info pointer must also fall within the currently
+mapped first GiB. The x86_64 checkpoint does not yet provide user mode,
+interrupts, memory allocation, filesystems, or a security boundary.

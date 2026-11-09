@@ -53,14 +53,6 @@ static void serial_write(const char *text)
     }
 }
 
-static void serial_hex64(uint64_t value)
-{
-    static const char digits[] = "0123456789ABCDEF";
-    for (int shift = 60; shift >= 0; shift -= 4) {
-        serial_putc(digits[(value >> shift) & 0x0Fu]);
-    }
-}
-
 static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
 {
     const uint8_t *info = (const uint8_t *)(uintptr_t)boot_info;
@@ -127,7 +119,6 @@ static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
             }
 
             found_mmap = 1;
-            serial_write("Usable physical memory ranges:\n");
             for (entry_offset = 0; entry_offset < payload_size;
                  entry_offset += mmap_tag->entry_size) {
                 const struct mb2_mmap_entry *entry =
@@ -139,11 +130,6 @@ static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
                     return 0;
                 }
                 if (entry->type == 1u && entry->length != 0u) {
-                    serial_write("  base=0x");
-                    serial_hex64(entry->address);
-                    serial_write(" length=0x");
-                    serial_hex64(entry->length);
-                    serial_write("\n");
                     usable_entries++;
                 }
             }
@@ -167,15 +153,13 @@ static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
 
 void x64_kmain(uint32_t boot_magic, uint32_t boot_info)
 {
-    serial_write("LolOS x86_64: long mode entered. Supervisor-only bootstrap map active.\n");
     if (!parse_memory_map(boot_magic, boot_info)) {
         serial_write("Memory-map parsing failed; halting.\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");
         }
     }
-    serial_write("Memory-map metadata validated; bootstrap mapping remains unchanged.\n");
-    serial_write("No user code or interrupts are enabled in this migration checkpoint.\n");
+    serial_write("LolOS x86_64: boot map valid.\n");
 
     for (;;) {
         __asm__ volatile ("cli; hlt");

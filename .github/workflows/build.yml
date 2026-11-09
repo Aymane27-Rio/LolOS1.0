@@ -36,7 +36,7 @@ jobs:
           > qemu.log 2>&1 &
         qemu_pid=$!
         for attempt in $(seq 1 120); do
-          if grep -Fq "Memory-map metadata validated; bootstrap mapping remains unchanged." x86_64-serial.log 2>/dev/null; then
+          if grep -Fq "LolOS x86_64: boot map valid." x86_64-serial.log 2>/dev/null; then
             kill "$qemu_pid" 2>/dev/null || true
             wait "$qemu_pid" 2>/dev/null || true
             break
@@ -52,7 +52,7 @@ jobs:
         fi
         cat qemu.log
         cat x86_64-serial.log
-        grep -F "Memory-map metadata validated; bootstrap mapping remains unchanged." x86_64-serial.log
+        grep -F "LolOS x86_64: boot map valid." x86_64-serial.log
 
     - name: Package release ISOs and checksums
       run: make release-assets

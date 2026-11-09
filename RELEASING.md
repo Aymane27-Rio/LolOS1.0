@@ -11,7 +11,7 @@ image is included only as a reference build.
 3. Build both images locally with `make release-assets` and verify
    `cd dist && sha256sum -c SHA256SUMS.txt`.
 4. Boot `dist/lolos-x86_64-checkpoint.iso` in QEMU and confirm the serial
-   message `Memory-map metadata validated; bootstrap mapping remains unchanged.`
+   message `LolOS x86_64: boot map valid.`
 
 ## Publish
 

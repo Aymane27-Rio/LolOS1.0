@@ -7,8 +7,8 @@ system and a separate x86_64 migration checkpoint.
 The original LolOS kernel is a 32-bit protected-mode prototype with an
 interactive shell and experimental drivers. The separate x86_64 image is an
 early boot checkpoint: it enters long mode, validates the Multiboot 2 memory
-map, prints usable ranges over COM1, and halts. It does not yet run the shell or
-reuse the 32-bit kernel.
+map, prints a short status over COM1, and halts. It does not yet run the shell
+or reuse the 32-bit kernel.
 
 ## Features
 * **Core Architecture:** Multiboot compliant with a custom 32-bit bootloader and dedicated stack.
@@ -18,7 +18,7 @@ reuse the 32-bit kernel.
 * **Hardware Interfacing:** * Direct CMOS Real-Time Clock (RTC) querying for live time/date.
   * Inline Assembly execution (CPUID) for physical processor identification.
 * **Persistent Storage:** ATA PIO block device driver capable of reading/writing raw 512-byte sectors to a virtual hard drive.
-* **x86_64 migration:** Separate Multiboot 2 long-mode checkpoint with serial memory-map reporting.
+* **x86_64 migration:** Separate Multiboot 2 long-mode checkpoint with serial confirmation that the memory map validates.
 * **Build pipeline:** GitHub Actions builds both images and prepares named ISO assets with SHA-256 checksums.
 
 ## Security and next steps
