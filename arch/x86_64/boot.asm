@@ -27,6 +27,9 @@ _start32:
     cli
     cld
     mov esp, stack_top
+    ; Preserve the Multiboot 2 handoff values before CPUID changes EAX/EBX.
+    mov [boot_magic], eax
+    mov [boot_info], ebx
     call serial_init
 
     ; Confirm extended CPUID leaves and long-mode support.
@@ -155,6 +158,8 @@ long_mode_entry:
     mov gs, ax
     lea rsp, [rel stack_top]
     and rsp, -16
+    mov edi, [rel boot_magic]
+    mov esi, [rel boot_info]
     call x64_kmain
 .halt64:
     cli
@@ -169,7 +174,12 @@ pdpt:
     resb 4096
 page_directory:
     resb 4096
-align 16
+align 4
+boot_magic:
+    resd 1
+boot_info:
+    resd 1
+alignb 16
 stack_bottom:
     resb 16384
 stack_top:
