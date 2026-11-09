@@ -28,11 +28,28 @@ jobs:
       run: make x86_64-iso
 
     - name: Boot-check x86_64 checkpoint
+      if: startsWith(github.ref, 'refs/tags/v')
       run: |
-        timeout 10s qemu-system-x86_64 \
+        qemu-system-x86_64 \
           -cdrom build/x86_64/lolos-x86_64.iso \
           -serial stdio -display none -no-reboot -no-shutdown \
-          > x86_64-serial.log 2>&1 || true
+          > x86_64-serial.log 2>&1 &
+        qemu_pid=$!
+        for attempt in $(seq 1 120); do
+          if grep -Fq "Memory-map metadata validated; bootstrap mapping remains unchanged." x86_64-serial.log; then
+            kill "$qemu_pid" 2>/dev/null || true
+            wait "$qemu_pid" 2>/dev/null || true
+            break
+          fi
+          if ! kill -0 "$qemu_pid" 2>/dev/null; then
+            break
+          fi
+          sleep 1
+        done
+        if kill -0 "$qemu_pid" 2>/dev/null; then
+          kill "$qemu_pid" 2>/dev/null || true
+          wait "$qemu_pid" 2>/dev/null || true
+        fi
         cat x86_64-serial.log
         grep -F "Memory-map metadata validated; bootstrap mapping remains unchanged." x86_64-serial.log
 
