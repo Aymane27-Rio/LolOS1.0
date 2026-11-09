@@ -8,6 +8,7 @@
 # build dir
 isodir/
 /build/
+/dist/
 # QEMU debug logs (idk if this is the correct extension, but it should be)
 *.log
 #OS-specific files for windows/mac users (i guess)

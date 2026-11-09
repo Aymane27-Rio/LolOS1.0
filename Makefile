@@ -15,7 +15,7 @@ X64_CFLAGS = -m64 -std=gnu11 -O2 -Wall -Wextra -Werror \
 
 OBJS = boot/boot.o kernel/kernel.o kernel/keyboard.o kernel/terminal.o kernel/string.o kernel/cmos.o kernel/shell.o kernel/cpu.o kernel/ata.o kernel/fs.o kernel/graphics.o kernel/font.o kernel/mouse.o kernel/pmm.o kernel/paging.o kernel/idt.o kernel/pic.o kernel/timer.o kernel/gdt.o kernel/syscall.o kernel/elf.o kernel/vfs.o
 
-.PHONY: all clean run x86_64-iso run-x86_64
+.PHONY: all clean run x86_64-iso run-x86_64 release-assets
 
 all: myos.iso disk.img app.elf
 
@@ -70,5 +70,12 @@ $(X64_DIR)/lolos-x86_64.iso: $(X64_DIR)/lolos-x86_64.bin arch/x86_64/grub.cfg
 run-x86_64: $(X64_DIR)/lolos-x86_64.iso
 	$(QEMU_X86_64) -cdrom $< -serial stdio -no-reboot -no-shutdown
 
+# Create the named ISO assets and checksums used by GitHub prereleases.
+release-assets: myos.iso $(X64_DIR)/lolos-x86_64.iso
+	mkdir -p dist
+	cp myos.iso dist/lolos-32bit-reference.iso
+	cp $(X64_DIR)/lolos-x86_64.iso dist/lolos-x86_64-checkpoint.iso
+	cd dist && sha256sum lolos-32bit-reference.iso lolos-x86_64-checkpoint.iso > SHA256SUMS.txt
+
 clean:
-	rm -rf $(OBJS) myos.bin myos.iso isodir disk.img build
+	rm -rf $(OBJS) myos.bin myos.iso isodir disk.img build dist

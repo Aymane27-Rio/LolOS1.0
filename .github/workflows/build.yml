@@ -3,6 +3,7 @@ name: OS Build Check
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*-pre.*" ]
   pull_request:
     branches: [ "main" ]
 
@@ -18,7 +19,7 @@ jobs:
       # gcc-multilib is needed to compile 32-bit code on a 64-bit runner
       run: |
           sudo apt-get update
-          sudo apt-get install -y nasm xorriso grub-pc-bin grub-common mtools
+          sudo apt-get install -y gcc-multilib nasm xorriso grub-pc-bin grub-common mtools qemu-system-x86
 
     - name: Build OS
       run: make
@@ -26,22 +27,65 @@ jobs:
     - name: Build x86_64 long-mode checkpoint
       run: make x86_64-iso
 
+    - name: Boot-check x86_64 checkpoint
+      run: |
+        set +e
+        timeout 10s qemu-system-x86_64 \
+          -cdrom build/x86_64/lolos-x86_64.iso \
+          -serial stdio -display none -no-reboot -no-shutdown \
+          > x86_64-serial.log 2>&1
+        qemu_status=$?
+        set -e
+        cat x86_64-serial.log
+        if [ "$qemu_status" -ne 124 ]; then
+          echo "QEMU did not remain in the checkpoint until the timeout (status $qemu_status)."
+          exit 1
+        fi
+        grep -F "Memory-map metadata validated; bootstrap mapping remains unchanged." x86_64-serial.log
+
+    - name: Package release ISOs and checksums
+      run: make release-assets
+
     - name: Verify Binary Exists
       run: |
         if [ ! -f myos.bin ]; then
           echo "Build failed: myos.bin was not created."
           exit 1
         fi
-    - name: Upload OS Binary Artifact
+    - name: Upload packaged ISO artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: LolOs-Binary
-        path: myos.bin
-        retention-days: 7
+        name: LolOS-ISO-packages
+        path: dist/
+        if-no-files-found: error
+        retention-days: 14
 
-    - name: Upload x86_64 ISO Artifact
-      uses: actions/upload-artifact@v4
+  publish-prerelease:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout tagged source
+      uses: actions/checkout@v4
+
+    - name: Download packaged ISO artifacts
+      uses: actions/download-artifact@v4
       with:
-        name: LolOS-x86_64-Checkpoint
-        path: build/x86_64/lolos-x86_64.iso
-        retention-days: 7
+        name: LolOS-ISO-packages
+        path: dist/
+
+    - name: Publish GitHub prerelease
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create "$GITHUB_REF_NAME" \
+          dist/lolos-32bit-reference.iso \
+          dist/lolos-x86_64-checkpoint.iso \
+          dist/SHA256SUMS.txt \
+          --verify-tag \
+          --title "LolOS ${GITHUB_REF_NAME} — x86_64 migration checkpoint" \
+          --notes-file .github/release-notes.md \
+          --prerelease \
+          --latest=false
