@@ -32,11 +32,11 @@ jobs:
       run: |
         qemu-system-x86_64 \
           -cdrom build/x86_64/lolos-x86_64.iso \
-          -serial stdio -display none -no-reboot -no-shutdown \
-          > x86_64-serial.log 2>&1 &
+          -serial file:x86_64-serial.log -display none -no-reboot -no-shutdown \
+          > qemu.log 2>&1 &
         qemu_pid=$!
         for attempt in $(seq 1 120); do
-          if grep -Fq "Memory-map metadata validated; bootstrap mapping remains unchanged." x86_64-serial.log; then
+          if grep -Fq "Memory-map metadata validated; bootstrap mapping remains unchanged." x86_64-serial.log 2>/dev/null; then
             kill "$qemu_pid" 2>/dev/null || true
             wait "$qemu_pid" 2>/dev/null || true
             break
@@ -50,6 +50,7 @@ jobs:
           kill "$qemu_pid" 2>/dev/null || true
           wait "$qemu_pid" 2>/dev/null || true
         fi
+        cat qemu.log
         cat x86_64-serial.log
         grep -F "Memory-map metadata validated; bootstrap mapping remains unchanged." x86_64-serial.log
 
