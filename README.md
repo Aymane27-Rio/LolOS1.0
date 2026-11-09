@@ -17,19 +17,19 @@ LolOS is a lightweight, monolithic testbed operating system operating in 32-bit 
 
 ## Security and next steps
 
-This is still an experimental 32-bit kernel, not a secure general-purpose OS.
-It now has paging, ring-3 execution, and system calls, but those features need
-careful review before they can be treated as isolation boundaries. In
-particular, validate all ELF and filesystem lengths before use, constrain user
-memory mappings, validate syscall pointers, and test malformed disk images.
+This is an experimental OS, not a secure general-purpose system. Ring-3
+execution, system calls, paging, storage, and filesystem support are prototypes
+and must not be treated as security boundaries yet. See [SECURITY.md](SECURITY.md)
+for the current security goals, known gaps, and migration checkpoints.
 
-The build disables compiler builtins, PIE/PIC, stack-protector instrumentation
-that lacks a kernel runtime, and unwind metadata. These settings make the
+The `x86_64-iso` target builds a separate Multiboot 2 image that enters long
+mode and prints a serial checkpoint. It deliberately does not reuse the
+32-bit kernel yet. Its initial 1 GiB identity map is temporary bootstrap
+plumbing; it is supervisor-only, but currently writable and executable. The
+compiler disables builtins, PIE/PIC, stack-protector instrumentation without a
+kernel runtime, unwind metadata, and the x86_64 red zone. These settings make
 freestanding assumptions explicit; they do not replace bounds checks,
-privilege checks, fuzzing, or code review. The next platform step is a
-deliberate x86_64 boot and memory-management migration, while keeping the
-current 32-bit image as a reference until the new path has repeatable CI boot
-coverage.
+privilege checks, memory protection, or code review.
 
 ## Prerequisites
 To build and run LolOs locally, you need the following installed on a Linux environment (Ubuntu recommended):
@@ -47,7 +47,12 @@ Clone the repository and use the included Makefile:
    ```bash
    make run
    ```
-2. Clean up build artifacts after finishing up (Note: `disk.img` will be deleted, wiping virtual disk data) :
+2. Build and launch the parallel x86_64 long-mode checkpoint:
+   ```bash
+   make x86_64-iso
+   make run-x86_64
+   ```
+3. Clean up build artifacts after finishing up (Note: `disk.img` will be deleted, wiping virtual disk data) :
    ```bash
    make clean
    ```
