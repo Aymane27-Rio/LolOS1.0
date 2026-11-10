@@ -11,7 +11,6 @@
 #include "../include/gdt.h"
 #include "../include/cmos.h"
 #include "../include/syscall.h"
-#include "../include/elf.h"
 #include "../include/fs.h"
 #include "../include/vfs.h"
 
@@ -20,12 +19,6 @@ extern void isr128();
 uint32_t terminal_row;
 uint32_t terminal_column;
 
-typedef struct {
-    uint32_t mod_start;
-    uint32_t mod_end;
-    uint32_t string;
-    uint32_t reserved;
-} multiboot_module_t;
 multiboot_info_t* global_mbd = 0;
 uint8_t window_open = 0; // 0 for desktop, 1 for teminal window
 
@@ -72,7 +65,7 @@ void start_desktop() {
                     draw_rect(0, 20, 800, 580, 0x001E1E1E); 
                     draw_terminal_icon(20, 40, 0x00FFFFFF);
                     draw_string("CLI", 14, 60, 0x00FFFFFF);
-                    draw_window(win_x, win_y, 500, 350, "Terminal - /bin/app.elf");
+                    draw_window(win_x, win_y, 500, 350, "Terminal");
                 }
                 else{
                     restore_cursor_bg(old_mx, old_my);
@@ -117,14 +110,9 @@ void start_desktop() {
                             draw_rect(0, 20, 800, 580, 0x001E1E1E); 
                             draw_terminal_icon(20, 40, 0x00FFFFFF);
                             draw_string("CLI", 14, 60, 0x00FFFFFF);
-                            draw_window(win_x, win_y, 500, 350, "Terminal - /bin/app.elf");
+                            draw_window(win_x, win_y, 500, 350, "Terminal");
                             terminal_row = (win_y + 24) / 8;
                             terminal_column = (win_x + 8) / 8;
-                            if (global_mbd->mods_count > 0) {
-                                multiboot_module_t* mod = (multiboot_module_t*)global_mbd->mods_addr;
-                                uint8_t* elf_file_in_ram = (uint8_t*)mod->mod_start;
-                                load_elf_and_execute(elf_file_in_ram);
-                            }
                         }
                     }
                 }

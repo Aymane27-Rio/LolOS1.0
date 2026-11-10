@@ -31,11 +31,13 @@ for the current security goals, known gaps, and migration checkpoints.
 The `x86_64-iso` target builds a separate Multiboot 2 image that enters long
 mode and prints a serial checkpoint. It deliberately does not reuse the
 32-bit kernel yet. Its initial 1 GiB identity map is temporary bootstrap
-plumbing; it is supervisor-only, but currently writable and executable. The
-compiler disables builtins, PIE/PIC, stack-protector instrumentation without a
-kernel runtime, unwind metadata, and the x86_64 red zone. These settings make
-freestanding assumptions explicit; they do not replace bounds checks,
-privilege checks, memory protection, or code review.
+plumbing. Kernel text is read-only and executable, read-only data is NX, and
+the rest of the mapped range is supervisor writable and NX. The map is not yet
+built from the Multiboot memory map. The compiler disables builtins, PIE/PIC,
+stack-protector instrumentation without a kernel runtime, unwind metadata, and
+the x86_64 red zone. These settings make freestanding assumptions explicit;
+they do not replace bounds checks, privilege checks, memory protection, or code
+review.
 
 ## Prerequisites
 To build and run LolOs locally, you need the following installed on a Linux environment (Ubuntu recommended):

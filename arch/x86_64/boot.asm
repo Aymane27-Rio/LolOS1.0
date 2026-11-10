@@ -22,6 +22,12 @@ section .text
 bits 32
 global _start32
 extern x64_kmain
+extern __kernel_text_start
+extern __kernel_text_end
+extern __kernel_rodata_start
+extern __kernel_rodata_end
+extern __kernel_writable_start
+extern __kernel_end
 
 _start32:
     cli
@@ -41,27 +47,79 @@ _start32:
     cpuid
     test edx, 1 << 29
     jz .no_long_mode
+    test edx, 1 << 20          ; NX is required for writable, non-executable RAM.
+    jz .no_long_mode
     mov eax, 1                   ; PAE is reported by the standard feature leaf.
     cpuid
     test edx, 1 << 6
     jz .no_long_mode
 
-    ; Identity-map the first GiB with 2 MiB supervisor-only pages.
+    ; Use 4 KiB pages for the kernel's first 2 MiB so linker sections can
+    ; receive distinct permissions. Map the rest with supervisor RW+NX pages.
     mov dword [pml4], pdpt + 0x03
     mov dword [pml4 + 4], 0
     mov dword [pdpt], page_directory + 0x03
     mov dword [pdpt + 4], 0
-    mov edi, page_directory
+    mov dword [page_directory], page_table + 0x03
+    mov dword [page_directory + 4], 0
+
+    mov edi, page_table
     mov ecx, 512
     xor eax, eax
-.map_pages:
+.map_kernel_pages:
+    ; Default low memory and the boot handoff area to supervisor RW+NX.
     mov edx, eax
-    or edx, 0x83                ; Present, writable, 2 MiB page; U/S stays clear.
+    or edx, 0x03
+    mov ebx, 0x80000000
+
+    ; Kernel text is supervisor read-only and executable.
+    cmp eax, __kernel_text_start
+    jb .check_writable
+    cmp eax, __kernel_text_end
+    jae .check_writable
+    mov edx, eax
+    or edx, 0x01
+    xor ebx, ebx
+    jmp .store_kernel_page
+
+.check_writable:
+    ; Read-only data is supervisor read-only and non-executable.
+    cmp eax, __kernel_rodata_start
+    jb .check_writable_data
+    cmp eax, __kernel_rodata_end
+    jae .check_writable_data
+    mov edx, eax
+    or edx, 0x01
+    jmp .store_kernel_page
+
+.check_writable_data:
+    ; Writable data, BSS, page tables, and stack remain RW+NX.
+    cmp eax, __kernel_writable_start
+    jb .store_kernel_page
+    cmp eax, __kernel_end
+    jae .store_kernel_page
+    mov edx, eax
+    or edx, 0x03
+
+.store_kernel_page:
     mov [edi], edx
-    mov dword [edi + 4], 0
+    mov [edi + 4], ebx
+    add eax, 0x1000
+    add edi, 8
+    loop .map_kernel_pages
+
+    mov edi, page_directory
+    add edi, 8
+    mov ecx, 511
+    mov eax, 0x00200000
+.map_remaining_pages:
+    mov edx, eax
+    or edx, 0x83                ; Present, writable, 2 MiB page; supervisor only.
+    mov [edi], edx
+    mov dword [edi + 4], 0x80000000 ; NX
     add eax, 0x200000
     add edi, 8
-    loop .map_pages
+    loop .map_remaining_pages
 
     lgdt [gdt_pointer]
     mov eax, cr4
@@ -72,11 +130,11 @@ _start32:
 
     mov ecx, 0xC0000080         ; EFER
     rdmsr
-    or eax, 1 << 8              ; LME
+    or eax, (1 << 11) | (1 << 8) ; NXE and LME
     wrmsr
 
     mov eax, cr0
-    or eax, 1 << 31             ; Paging (PE is already set by GRUB).
+    or eax, (1 << 31) | (1 << 16) ; Paging and supervisor write protection.
     mov cr0, eax
     jmp 0x08:long_mode_entry
 
@@ -136,15 +194,15 @@ align 8
 gdt:
     dq 0x0000000000000000
 gdt_code64:
-    dq 0x00AF9A000000FFFF
+    dq 0x00AF9B000000FFFF     ; Accessed bit is pre-set for the read-only GDT.
 gdt_data:
-    dq 0x00CF92000000FFFF
+    dq 0x00CF93000000FFFF     ; Accessed bit is pre-set for the read-only GDT.
 gdt_end:
 gdt_pointer:
     dw gdt_end - gdt - 1
     dd gdt
 no_long_mode_message:
-    db "LolOS x86_64: CPU lacks required long mode or PAE support", 13, 10, 0
+    db "LolOS x86_64: CPU lacks long mode, PAE, or NX support", 13, 10, 0
 
 section .text
 bits 64
@@ -173,6 +231,8 @@ pml4:
 pdpt:
     resb 4096
 page_directory:
+    resb 4096
+page_table:
     resb 4096
 align 4
 boot_magic:
