@@ -51,7 +51,7 @@ $(X64_DIR):
 $(X64_DIR)/boot.o: arch/x86_64/boot.asm | $(X64_DIR)
 	$(AS) -f elf64 $< -o $@
 
-$(X64_DIR)/kernel.o: arch/x86_64/kernel.c | $(X64_DIR)
+$(X64_DIR)/kernel.o: arch/x86_64/kernel.c arch/x86_64/memory_map.h | $(X64_DIR)
 	$(CC) $(X64_CFLAGS) -c $< -o $@
 
 $(X64_DIR)/lolos-x86_64.bin: $(X64_DIR)/boot.o $(X64_DIR)/kernel.o arch/x86_64/linker.ld

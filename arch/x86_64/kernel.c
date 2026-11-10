@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "memory_map.h"
 
 #define COM1 0x3F8u
 #define MB2_BOOT_MAGIC 0x36D76289u
@@ -22,6 +23,10 @@ struct mb2_mmap_entry {
     uint32_t type;
     uint32_t reserved;
 } __attribute__((packed));
+
+struct x64_memory_region
+    x64_memory_map_entries[X64_MEMORY_MAP_MAX_ENTRIES];
+uint32_t x64_memory_map_entry_count;
 
 static inline void outb(uint16_t port, uint8_t value)
 {
@@ -60,7 +65,9 @@ static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
     uint32_t offset;
     int found_end = 0;
     int found_mmap = 0;
-    uint32_t usable_entries = 0;
+    int found_usable_memory = 0;
+
+    x64_memory_map_entry_count = 0;
 
     if (boot_magic != MB2_BOOT_MAGIC) {
         serial_write("Multiboot 2: invalid boot magic\n");
@@ -129,8 +136,21 @@ static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
                     serial_write("Multiboot 2: overflowing memory-map range\n");
                     return 0;
                 }
+
+                if (x64_memory_map_entry_count == X64_MEMORY_MAP_MAX_ENTRIES) {
+                    serial_write("Multiboot 2: memory map exceeds entry capacity\n");
+                    return 0;
+                }
+                x64_memory_map_entries[x64_memory_map_entry_count].base =
+                    entry->address;
+                x64_memory_map_entries[x64_memory_map_entry_count].length =
+                    entry->length;
+                x64_memory_map_entries[x64_memory_map_entry_count].type =
+                    entry->type;
+                x64_memory_map_entry_count++;
+
                 if (entry->type == 1u && entry->length != 0u) {
-                    usable_entries++;
+                    found_usable_memory = 1;
                 }
             }
         }
@@ -144,7 +164,7 @@ static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
         offset = next_offset;
     }
 
-    if (!found_end || !found_mmap || usable_entries == 0u) {
+    if (!found_end || !found_mmap || !found_usable_memory) {
         serial_write("Multiboot 2: missing end tag, memory map, or usable memory\n");
         return 0;
     }
