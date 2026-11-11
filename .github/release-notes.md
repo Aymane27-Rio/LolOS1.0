@@ -5,9 +5,12 @@ secure operating system.
 ## Downloadable images
 
 - `lolos-x86_64-checkpoint.iso` boots through Multiboot 2, enters x86_64 long
-  mode, validates the memory-map entries, prints a short status over COM1, and
-  halts.
-  It has no interactive shell, user mode, or device drivers.
+  mode, validates and retains raw memory-map entries, then opens a minimal
+  polled COM1 command prompt. Use `help`, `info`, and `memmap` to explore it.
+  The ranges are informational and are not used for allocation or page-table
+  construction.
+  The checkpoint has no user mode, interrupts, general device drivers, or
+  network stack.
 - `lolos-32bit-reference.iso` is the separate experimental 32-bit reference
   system. Its paging, ELF, syscall, filesystem, and storage paths are
   prototypes and are not security boundaries.
@@ -22,9 +25,11 @@ sha256sum -c SHA256SUMS.txt
 Boot the x86_64 checkpoint in QEMU and view its serial output:
 
 ```sh
-qemu-system-x86_64 -cdrom lolos-x86_64-checkpoint.iso -serial stdio -display none
+qemu-system-x86_64 -cdrom lolos-x86_64-checkpoint.iso -serial stdio -monitor none -display none
 ```
 
-The checkpoint uses a temporary writable and executable identity map over the
-first GiB. Do not use either image with sensitive data or treat it as an
-isolated or secure operating system. See `SECURITY.md` for the current gaps.
+The checkpoint uses a temporary first-GiB identity map. Kernel text is
+read-only and executable, read-only data is NX, and the remaining mapped
+memory is writable and NX. The command prompt runs in ring 0 and provides no
+user isolation. Do not use either image with sensitive data or treat it as a
+secure operating system. See `SECURITY.md` for the current gaps.

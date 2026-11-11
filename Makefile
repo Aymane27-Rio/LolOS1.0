@@ -71,7 +71,7 @@ $(X64_DIR)/lolos-x86_64.iso: $(X64_DIR)/lolos-x86_64.bin arch/x86_64/grub.cfg
 	grub-mkrescue -o $@ $(X64_DIR)/isodir
 
 run-x86_64: $(X64_DIR)/lolos-x86_64.iso
-	$(QEMU_X86_64) -cdrom $< -serial stdio -no-reboot -no-shutdown
+	$(QEMU_X86_64) -cdrom $< -serial stdio -monitor none -display none -no-reboot -no-shutdown
 
 # Create the named ISO assets and checksums used by GitHub prereleases.
 release-assets: myos.iso $(X64_DIR)/lolos-x86_64.iso

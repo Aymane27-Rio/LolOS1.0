@@ -1,27 +1,27 @@
 # Making a LolOS pre-release
 
-The first planned public milestone is `v0.0.1-pre.1`. It is an experimental
-x86_64 boot checkpoint, not a usable or secure operating system. The 32-bit
-image is included only as a reference build.
+Each pre-release is an experimental snapshot, not a secure or general-purpose
+operating system. The x86_64 image currently offers a minimal command prompt on
+COM1; the 32-bit image remains a reference build.
 
 ## Before tagging
 
-1. Merge and push the reviewed packaging changes to `main`.
+1. Merge and push the reviewed release changes to `main`.
 2. Confirm the `OS Build Check` workflow passes on that commit.
 3. Build both images locally with `make release-assets` and verify
    `cd dist && sha256sum -c SHA256SUMS.txt`.
-4. Boot `dist/lolos-x86_64-checkpoint.iso` in QEMU and confirm the serial
-   message `LolOS x86_64: boot map valid.`
+4. Boot `dist/lolos-x86_64-checkpoint.iso` in QEMU, confirm the prompt, and run
+   `help` and `memmap`.
 
 ## Publish
 
-Create and push the annotated prerelease tag:
+Choose a new unused pre-release tag (for example, `v0.0.2-pre.1`) and push it:
 
 ```sh
 git switch main
 git pull --ff-only origin main
-git tag -a v0.0.1-pre.1 -m "LolOS 0.0.1 pre-release 1"
-git push origin v0.0.1-pre.1
+git tag -a v0.0.2-pre.1 -m "LolOS 0.0.2 pre-release 1"
+git push origin v0.0.2-pre.1
 ```
 
 The tag starts the build workflow. It rebuilds both ISOs, boot-checks the

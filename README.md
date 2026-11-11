@@ -62,7 +62,8 @@ Clone the repository and use the included Makefile:
    make run-x86_64
    ```
    Use the terminal attached to QEMU's serial port. Type `help` to list
-   commands such as `info`, `memmap`, `echo`, `clear`, and `halt`.
+   commands such as `info`, `memmap`, `echo`, `clear`, and `halt`. QEMU's video
+   display is hidden because this checkpoint has no graphics console yet.
 3. Clean up build artifacts after finishing up (Note: this deletes `disk.img` and any packaged assets in `dist/`):
    ```bash
    make clean
@@ -86,11 +87,15 @@ Verify them with `cd dist && sha256sum -c SHA256SUMS.txt`.
 
 ## Download a pre-release
 
-When a prerelease tag such as `v0.0.1-pre.1` is pushed, GitHub Actions builds
-both images, boots the x86_64 checkpoint in QEMU, packages the images with
-checksums, and publishes a GitHub prerelease. Download the ISO assets from the
-repository's **Releases** page. Workflow artifacts are temporary build outputs;
-use the release assets for persistent downloads.
+When a matching pre-release tag is pushed, GitHub Actions builds both images,
+boots the x86_64 command prompt in QEMU, packages the images with checksums,
+and publishes a GitHub prerelease. Download the ISO assets from the repository's
+**Releases** page. Workflow artifacts are temporary build outputs; use the
+release assets for persistent downloads.
+
+The published `v0.0.1-pre.1` x86_64 ISO predates the serial command prompt and
+halts after its boot check. Build this checkout with `make x86_64-iso` to try
+the interactive console.
 
 For the x86_64 image, run:
 
