@@ -46,11 +46,14 @@ cryptographic identity, and multi-user policy are outside the current scope.
 ## Known gaps
 
 The existing 32-bit paging and ELF loader are experimental and currently lack
-the invariants above. The x86_64 bootstrap maps the first GiB with 2 MiB pages;
-those entries are supervisor-only, but writable and executable. That map is
-only for reaching the serial checkpoint and must be replaced before porting
-applications or device drivers. The x86_64 checkpoint validates the Multiboot 2
-handoff and memory-map tag, but does not yet use those ranges to allocate memory
-or construct mappings; its boot-info pointer must also fall within the currently
-mapped first GiB. The x86_64 checkpoint does not yet provide user mode,
-interrupts, memory allocation, filesystems, or a security boundary.
+the invariants above. The x86_64 bootstrap uses 4 KiB pages for the first 2 MiB:
+kernel text is read-only and executable, read-only data is NX, and writable
+kernel data is NX. The rest of the temporary first-GiB identity map is
+supervisor writable and NX. This map is not yet constructed from the Multiboot
+memory map and must be replaced before porting applications or device drivers.
+The checkpoint validates and retains up to 256 raw Multiboot 2 memory-map
+entries, but does not yet normalize overlapping ranges, reserve the kernel and
+boot structures, or use the entries to allocate memory or construct mappings.
+Its boot-info pointer must also fall within the currently mapped first GiB. The
+x86_64 checkpoint does not yet provide user mode, interrupts, memory
+allocation, filesystems, or a security boundary.

@@ -13,14 +13,11 @@ X64_CFLAGS = -m64 -std=gnu11 -O2 -Wall -Wextra -Werror \
 	-fno-asynchronous-unwind-tables -fno-unwind-tables -mno-red-zone \
 	-mgeneral-regs-only -mcmodel=small
 
-OBJS = boot/boot.o kernel/kernel.o kernel/keyboard.o kernel/terminal.o kernel/string.o kernel/cmos.o kernel/shell.o kernel/cpu.o kernel/ata.o kernel/fs.o kernel/graphics.o kernel/font.o kernel/mouse.o kernel/pmm.o kernel/paging.o kernel/idt.o kernel/pic.o kernel/timer.o kernel/gdt.o kernel/syscall.o kernel/elf.o kernel/vfs.o
+OBJS = boot/boot.o kernel/kernel.o kernel/keyboard.o kernel/terminal.o kernel/string.o kernel/cmos.o kernel/shell.o kernel/cpu.o kernel/ata.o kernel/fs.o kernel/graphics.o kernel/font.o kernel/mouse.o kernel/pmm.o kernel/paging.o kernel/idt.o kernel/pic.o kernel/timer.o kernel/gdt.o kernel/syscall.o kernel/vfs.o
 
 .PHONY: all clean run x86_64-iso run-x86_64 release-assets
 
-all: myos.iso disk.img app.elf
-
-app.elf: user/app.c
-	gcc -m32 -ffreestanding -nostdlib -fno-pie -e _start -o app.elf user/app.c
+all: myos.iso disk.img
 
 myos.bin: $(OBJS)
 		ld $(LDFLAGS) -o $@ $(OBJS)
@@ -33,11 +30,10 @@ myos.bin: $(OBJS)
 	$(AS) $(ASFLAGS) $< -o $@
 
 # bootable ISO using GRUB
-myos.iso: myos.bin app.elf
+myos.iso: myos.bin
 	mkdir -p isodir/boot/grub
 	cp myos.bin isodir/boot/
-	cp app.elf isodir/boot/
-	echo 'menuentry "LolOS" { multiboot /boot/myos.bin; module /boot/app.elf; boot }' > isodir/boot/grub/grub.cfg
+	echo 'menuentry "LolOS" { multiboot /boot/myos.bin; boot }' > isodir/boot/grub/grub.cfg
 	grub-mkrescue -o myos.iso isodir
 
 disk.img:
@@ -55,7 +51,7 @@ $(X64_DIR):
 $(X64_DIR)/boot.o: arch/x86_64/boot.asm | $(X64_DIR)
 	$(AS) -f elf64 $< -o $@
 
-$(X64_DIR)/kernel.o: arch/x86_64/kernel.c | $(X64_DIR)
+$(X64_DIR)/kernel.o: arch/x86_64/kernel.c arch/x86_64/memory_map.h | $(X64_DIR)
 	$(CC) $(X64_CFLAGS) -c $< -o $@
 
 $(X64_DIR)/lolos-x86_64.bin: $(X64_DIR)/boot.o $(X64_DIR)/kernel.o arch/x86_64/linker.ld
@@ -78,4 +74,4 @@ release-assets: myos.iso $(X64_DIR)/lolos-x86_64.iso
 	cd dist && sha256sum lolos-32bit-reference.iso lolos-x86_64-checkpoint.iso > SHA256SUMS.txt
 
 clean:
-	rm -rf $(OBJS) myos.bin myos.iso isodir disk.img build dist
+	rm -rf $(OBJS) myos.bin myos.iso isodir disk.img app.elf build dist
