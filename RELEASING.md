@@ -39,5 +39,6 @@ sha256sum -c SHA256SUMS.txt
 
 Do not describe this checkpoint as secure, isolated, or general-purpose. The
 x86_64 bootstrap uses a temporary first-GiB identity map that is not built from
-the Multiboot memory map. It has no user mode, interrupts, drivers, or
-interactive shell. See `SECURITY.md` and the release notes for details.
+the Multiboot memory map. It provides a minimal polled COM1 command prompt, but
+has no user mode, interrupts, or general device drivers. See `SECURITY.md` and
+the release notes for details.
