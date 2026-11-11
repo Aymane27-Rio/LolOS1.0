@@ -5,10 +5,10 @@ system and a separate x86_64 migration checkpoint.
 
 ## Overview
 The original LolOS kernel is a 32-bit protected-mode prototype with an
-interactive shell and experimental drivers. The separate x86_64 image is an
-early boot checkpoint: it enters long mode, validates the Multiboot 2 memory
-map, prints a short status over COM1, and halts. It does not yet run the shell
-or reuse the 32-bit kernel.
+interactive shell and experimental drivers. The separate x86_64 image enters
+long mode, validates and retains the Multiboot 2 memory map, then provides a
+minimal command prompt over polled COM1 serial. It is a separate kernel and
+does not reuse the 32-bit shell or drivers.
 
 ## Features
 * **Core Architecture:** Multiboot compliant with a custom 32-bit bootloader and dedicated stack.
@@ -18,7 +18,7 @@ or reuse the 32-bit kernel.
 * **Hardware Interfacing:** * Direct CMOS Real-Time Clock (RTC) querying for live time/date.
   * Inline Assembly execution (CPUID) for physical processor identification.
 * **Persistent Storage:** ATA PIO block device driver capable of reading/writing raw 512-byte sectors to a virtual hard drive.
-* **x86_64 migration:** Separate Multiboot 2 long-mode checkpoint with serial confirmation that the memory map validates.
+* **x86_64 migration:** Separate Multiboot 2 kernel with a small serial command shell and raw memory-map inspection.
 * **Build pipeline:** GitHub Actions builds both images and prepares named ISO assets with SHA-256 checksums.
 
 ## Security and next steps
@@ -28,16 +28,17 @@ execution, system calls, paging, storage, and filesystem support are prototypes
 and must not be treated as security boundaries yet. See [SECURITY.md](SECURITY.md)
 for the current security goals, known gaps, and migration checkpoints.
 
-The `x86_64-iso` target builds a separate Multiboot 2 image that enters long
-mode and prints a serial checkpoint. It deliberately does not reuse the
-32-bit kernel yet. Its initial 1 GiB identity map is temporary bootstrap
-plumbing. Kernel text is read-only and executable, read-only data is NX, and
-the rest of the mapped range is supervisor writable and NX. The map is not yet
-built from the Multiboot memory map. The compiler disables builtins, PIE/PIC,
-stack-protector instrumentation without a kernel runtime, unwind metadata, and
-the x86_64 red zone. These settings make freestanding assumptions explicit;
-they do not replace bounds checks, privilege checks, memory protection, or code
-review.
+The `x86_64-iso` target builds a separate Multiboot 2 image with a polled COM1
+command prompt. Type `help` for the available commands. The prompt supports
+basic line editing and can display validated raw memory-map entries. It
+deliberately does not reuse the 32-bit kernel. Its initial 1 GiB identity map
+is temporary bootstrap plumbing and is not built from the memory map. Kernel
+text is read-only and executable, read-only data is NX, and the rest of the
+mapped range is supervisor writable and NX. The compiler disables builtins,
+PIE/PIC, stack-protector instrumentation without a kernel runtime, unwind
+metadata, and the x86_64 red zone. These settings make freestanding assumptions
+explicit; they do not replace bounds checks, privilege checks, memory
+protection, or code review.
 
 ## Prerequisites
 To build and run LolOs locally, you need the following installed on a Linux environment (Ubuntu recommended):
@@ -60,6 +61,9 @@ Clone the repository and use the included Makefile:
    make x86_64-iso
    make run-x86_64
    ```
+   Use the terminal attached to QEMU's serial port. Type `help` to list
+   commands such as `info`, `memmap`, `echo`, `clear`, and `halt`. QEMU's video
+   display is hidden because this checkpoint has no graphics console yet.
 3. Clean up build artifacts after finishing up (Note: this deletes `disk.img` and any packaged assets in `dist/`):
    ```bash
    make clean
@@ -76,18 +80,22 @@ make release-assets
 The files appear in `dist/`:
 
 - `lolos-32bit-reference.iso` — the experimental original system.
-- `lolos-x86_64-checkpoint.iso` — serial-only long-mode migration checkpoint.
+- `lolos-x86_64-checkpoint.iso` — x86_64 long-mode migration image with a serial command prompt.
 - `SHA256SUMS.txt` — SHA-256 checksums for both images.
 
 Verify them with `cd dist && sha256sum -c SHA256SUMS.txt`.
 
 ## Download a pre-release
 
-When a prerelease tag such as `v0.0.1-pre.1` is pushed, GitHub Actions builds
-both images, boots the x86_64 checkpoint in QEMU, packages the images with
-checksums, and publishes a GitHub prerelease. Download the ISO assets from the
-repository's **Releases** page. Workflow artifacts are temporary build outputs;
-use the release assets for persistent downloads.
+When a matching pre-release tag is pushed, GitHub Actions builds both images,
+boots the x86_64 command prompt in QEMU, packages the images with checksums,
+and publishes a GitHub prerelease. Download the ISO assets from the repository's
+**Releases** page. Workflow artifacts are temporary build outputs; use the
+release assets for persistent downloads.
+
+The published `v0.0.1-pre.1` x86_64 ISO predates the serial command prompt and
+halts after its boot check. Build this checkout with `make x86_64-iso` to try
+the interactive console.
 
 For the x86_64 image, run:
 
@@ -101,8 +109,9 @@ For the 32-bit reference image, run:
 qemu-system-i386 -cdrom lolos-32bit-reference.iso
 ```
 
-Both images are experimental. The x86_64 image only verifies the boot
-transition and reports memory ranges; neither image should be treated as a
-secure or general-purpose operating system. See [SECURITY.md](SECURITY.md) and
-the notes attached to each prerelease. The maintainer release steps are in
+Both images are experimental. The x86_64 image is a ring-0 bring-up console;
+its memory-map entries are informational and do not drive allocation or
+page-table construction. Neither image should be treated as a secure or
+general-purpose operating system. See [SECURITY.md](SECURITY.md) and the notes
+attached to each prerelease. The maintainer release steps are in
 [RELEASING.md](RELEASING.md).

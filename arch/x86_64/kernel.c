@@ -1,7 +1,8 @@
 #include <stdint.h>
+#include "console.h"
 #include "memory_map.h"
+#include "serial.h"
 
-#define COM1 0x3F8u
 #define MB2_BOOT_MAGIC 0x36D76289u
 #define IDENTITY_MAP_SIZE 0x40000000u
 
@@ -27,36 +28,6 @@ struct mb2_mmap_entry {
 struct x64_memory_region
     x64_memory_map_entries[X64_MEMORY_MAP_MAX_ENTRIES];
 uint32_t x64_memory_map_entry_count;
-
-static inline void outb(uint16_t port, uint8_t value)
-{
-    __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port) : "memory");
-}
-
-static inline uint8_t inb(uint16_t port)
-{
-    uint8_t value;
-    __asm__ volatile ("inb %1, %0" : "=a"(value) : "Nd"(port) : "memory");
-    return value;
-}
-
-static void serial_putc(char character)
-{
-    while ((inb(COM1 + 5) & 0x20u) == 0u) {
-        __asm__ volatile ("pause");
-    }
-    outb(COM1, (uint8_t)character);
-}
-
-static void serial_write(const char *text)
-{
-    while (*text != '\0') {
-        if (*text == '\n') {
-            serial_putc('\r');
-        }
-        serial_putc(*text++);
-    }
-}
 
 static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
 {
@@ -173,6 +144,7 @@ static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
 
 void x64_kmain(uint32_t boot_magic, uint32_t boot_info)
 {
+    serial_init();
     if (!parse_memory_map(boot_magic, boot_info)) {
         serial_write("Memory-map parsing failed; halting.\n");
         for (;;) {
@@ -180,7 +152,7 @@ void x64_kmain(uint32_t boot_magic, uint32_t boot_info)
         }
     }
     serial_write("LolOS x86_64: boot map valid.\n");
-
+    x64_console_run();
     for (;;) {
         __asm__ volatile ("cli; hlt");
     }

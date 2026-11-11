@@ -55,5 +55,6 @@ The checkpoint validates and retains up to 256 raw Multiboot 2 memory-map
 entries, but does not yet normalize overlapping ranges, reserve the kernel and
 boot structures, or use the entries to allocate memory or construct mappings.
 Its boot-info pointer must also fall within the currently mapped first GiB. The
-x86_64 checkpoint does not yet provide user mode, interrupts, memory
-allocation, filesystems, or a security boundary.
+x86_64 checkpoint provides a minimal polled COM1 command prompt that runs in
+ring 0. It does not yet provide user mode, interrupts, memory allocation,
+filesystems, or a security boundary.
