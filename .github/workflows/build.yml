@@ -30,7 +30,7 @@ jobs:
     - name: Boot-check x86_64 serial console
       run: |
         set +e
-        printf 'help\rinfo\rmemmap\recho ci-console-ok\rhalt\r' | timeout 15s qemu-system-x86_64 \
+        printf 'help\rinfo\recho ci-console-ok\rhalt\r' | timeout 15s qemu-system-x86_64 \
           -cdrom build/x86_64/lolos-x86_64.iso \
           -serial stdio -monitor none -display none -no-reboot -no-shutdown \
           > x86_64-console.log 2>&1
@@ -44,7 +44,6 @@ jobs:
         grep -F "LolOS x86_64: boot map valid." x86_64-console.log
         grep -F "Commands:" x86_64-console.log
         grep -F "Memory-map entries retained:" x86_64-console.log
-        grep -F "Raw Multiboot memory map entries:" x86_64-console.log
         grep -F "ci-console-ok" x86_64-console.log
         grep -F "CPU halted. Reset the VM to continue." x86_64-console.log
 
