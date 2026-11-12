@@ -12,6 +12,7 @@ PHDRS
 SECTIONS
 {
     . = 1M;
+    __kernel_start = .;
     .multiboot2 ALIGN(8) : { KEEP(*(.multiboot2)) } :multiboot
     .text ALIGN(4K) : {
         __kernel_text_start = .;

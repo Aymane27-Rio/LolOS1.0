@@ -8,7 +8,7 @@ AS = nasm
 ASFLAGS = -f elf32
 QEMU_X86_64 = qemu-system-x86_64
 X64_DIR = build/x86_64
-X64_OBJS = $(X64_DIR)/boot.o $(X64_DIR)/kernel.o $(X64_DIR)/serial.o $(X64_DIR)/console.o
+X64_OBJS = $(X64_DIR)/boot.o $(X64_DIR)/kernel.o $(X64_DIR)/memory_map.o $(X64_DIR)/serial.o $(X64_DIR)/console.o
 X64_CFLAGS = -m64 -std=gnu11 -O2 -Wall -Wextra -Werror \
 	-ffreestanding -fno-builtin -fno-pie -fno-pic -fno-stack-protector \
 	-fno-asynchronous-unwind-tables -fno-unwind-tables -mno-red-zone \
@@ -53,6 +53,9 @@ $(X64_DIR)/boot.o: arch/x86_64/boot.asm | $(X64_DIR)
 	$(AS) -f elf64 $< -o $@
 
 $(X64_DIR)/kernel.o: arch/x86_64/kernel.c arch/x86_64/console.h arch/x86_64/memory_map.h arch/x86_64/serial.h | $(X64_DIR)
+	$(CC) $(X64_CFLAGS) -c $< -o $@
+
+$(X64_DIR)/memory_map.o: arch/x86_64/memory_map.c arch/x86_64/memory_map.h arch/x86_64/serial.h | $(X64_DIR)
 	$(CC) $(X64_CFLAGS) -c $< -o $@
 
 $(X64_DIR)/serial.o: arch/x86_64/serial.c arch/x86_64/serial.h | $(X64_DIR)

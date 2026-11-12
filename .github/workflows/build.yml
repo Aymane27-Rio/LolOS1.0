@@ -44,6 +44,7 @@ jobs:
         grep -F "LolOS x86_64: boot map valid." x86_64-console.log
         grep -F "Commands:" x86_64-console.log
         grep -F "Memory-map entries retained:" x86_64-console.log
+        grep -F "Normalized usable page ranges:" x86_64-console.log
         grep -F "ci-console-ok" x86_64-console.log
         grep -F "CPU halted. Reset the VM to continue." x86_64-console.log
 
