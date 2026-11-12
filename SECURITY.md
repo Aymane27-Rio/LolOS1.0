@@ -52,9 +52,11 @@ kernel data is NX. The rest of the temporary first-GiB identity map is
 supervisor writable and NX. This map is not yet constructed from the Multiboot
 memory map and must be replaced before porting applications or device drivers.
 The checkpoint validates and retains up to 256 raw Multiboot 2 memory-map
-entries, but does not yet normalize overlapping ranges, reserve the kernel and
-boot structures, or use the entries to allocate memory or construct mappings.
-Its boot-info pointer must also fall within the currently mapped first GiB. The
-x86_64 checkpoint provides a minimal polled COM1 command prompt that runs in
-ring 0. It does not yet provide user mode, interrupts, memory allocation,
-filesystems, or a security boundary.
+entries. It derives page-aligned usable ranges after merging overlaps and
+excluding non-usable entries, the first MiB, the kernel image, and the boot-info
+block. These normalized ranges are not yet used for allocation or page-table
+construction, so the temporary identity map remains in place. Its boot-info
+pointer must also fall within the currently mapped first GiB. The x86_64
+checkpoint provides a minimal polled COM1 command prompt that runs in ring 0.
+It does not yet provide user mode, interrupts, a memory allocator, filesystems,
+or a security boundary.

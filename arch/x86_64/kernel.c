@@ -29,7 +29,11 @@ struct x64_memory_region
     x64_memory_map_entries[X64_MEMORY_MAP_MAX_ENTRIES];
 uint32_t x64_memory_map_entry_count;
 
-static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
+extern unsigned char __kernel_start[];
+extern unsigned char __kernel_end[];
+
+static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info,
+                            uint32_t *boot_info_size_out)
 {
     const uint8_t *info = (const uint8_t *)(uintptr_t)boot_info;
     uint32_t total_size;
@@ -139,14 +143,27 @@ static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info)
         serial_write("Multiboot 2: missing end tag, memory map, or usable memory\n");
         return 0;
     }
+    *boot_info_size_out = total_size;
     return 1;
 }
 
 void x64_kmain(uint32_t boot_magic, uint32_t boot_info)
 {
+    uint32_t boot_info_size;
+
     serial_init();
-    if (!parse_memory_map(boot_magic, boot_info)) {
+    if (!parse_memory_map(boot_magic, boot_info, &boot_info_size)) {
         serial_write("Memory-map parsing failed; halting.\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    if (!x64_normalize_usable_ranges(
+            boot_info, boot_info_size,
+            (uint64_t)(uintptr_t)__kernel_start,
+            (uint64_t)(uintptr_t)__kernel_end -
+                (uint64_t)(uintptr_t)__kernel_start)) {
+        serial_write("Memory-map normalization failed; halting.\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");
         }

@@ -48,6 +48,15 @@ static int match_command(const char *line, const char *name,
     return 1;
 }
 
+static int string_equals(const char *left, const char *right)
+{
+    while (*left != '\0' && *left == *right) {
+        left++;
+        right++;
+    }
+    return *left == '\0' && *right == '\0';
+}
+
 static int read_line(char *buffer, size_t capacity)
 {
     size_t length = 0;
@@ -138,7 +147,28 @@ static void show_memory_map(void)
         serial_write(memory_type_name(region->type));
         serial_write(")\n");
     }
-    serial_write("These raw ranges are not yet normalized or used for allocation.\n");
+    serial_write("Raw ranges may overlap; use 'memmap usable' for normalized ranges.\n");
+}
+
+static void show_usable_ranges(void)
+{
+    uint32_t index;
+
+    serial_write("Normalized usable page ranges after reservations: ");
+    serial_write_u32(x64_usable_range_count);
+    serial_write("\n");
+    for (index = 0u; index < x64_usable_range_count; index++) {
+        const struct x64_usable_range *range = &x64_usable_ranges[index];
+
+        serial_write("[");
+        serial_write_u32(index);
+        serial_write("] base=");
+        serial_write_hex64(range->base);
+        serial_write(" length=");
+        serial_write_hex64(range->length);
+        serial_write("\n");
+    }
+    serial_write("These ranges are not yet used by an allocator or page tables.\n");
 }
 
 static void execute_command(char *line)
@@ -157,7 +187,7 @@ static void execute_command(char *line)
         serial_write("Commands:\n"
                      "  help          Show this command list\n"
                      "  info          Show checkpoint status\n"
-                     "  memmap        List validated raw memory ranges\n"
+                     "  memmap [usable] List raw or normalized usable ranges\n"
                      "  echo TEXT     Print TEXT\n"
                      "  clear         Clear the serial terminal\n"
                      "  halt          Halt the CPU\n");
@@ -173,14 +203,20 @@ static void execute_command(char *line)
                      "Memory-map entries retained: ");
         serial_write_u32(x64_memory_map_entry_count);
         serial_write("\nThis kernel runs in ring 0 and has no user isolation.\n");
+        serial_write("Normalized usable page ranges: ");
+        serial_write_u32(x64_usable_range_count);
+        serial_write("\n");
         return;
     }
     if (match_command(line, "memmap", &arguments)) {
-        if (*arguments != '\0') {
-            serial_write("Usage: memmap\n");
+        if (*arguments == '\0') {
+            show_memory_map();
+        } else if (string_equals(arguments, "usable")) {
+            show_usable_ranges();
+        } else {
+            serial_write("Usage: memmap [usable]\n");
             return;
         }
-        show_memory_map();
         return;
     }
     if (match_command(line, "echo", &arguments)) {
