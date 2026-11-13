@@ -12,7 +12,7 @@ X64_OBJS = $(X64_DIR)/boot.o $(X64_DIR)/kernel.o $(X64_DIR)/memory_map.o $(X64_D
 X64_CFLAGS = -m64 -std=gnu11 -O2 -Wall -Wextra -Werror \
 	-ffreestanding -fno-builtin -fno-pie -fno-pic -fno-stack-protector \
 	-fno-asynchronous-unwind-tables -fno-unwind-tables -mno-red-zone \
-	-mgeneral-regs-only -mcmodel=small
+	-mgeneral-regs-only -mcmodel=small -march=x86-64 -mtune=generic
 
 OBJS = boot/boot.o kernel/kernel.o kernel/keyboard.o kernel/terminal.o kernel/string.o kernel/cmos.o kernel/shell.o kernel/cpu.o kernel/ata.o kernel/fs.o kernel/graphics.o kernel/font.o kernel/mouse.o kernel/pmm.o kernel/paging.o kernel/idt.o kernel/pic.o kernel/timer.o kernel/gdt.o kernel/syscall.o kernel/vfs.o
 
