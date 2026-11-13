@@ -18,7 +18,7 @@ does not reuse the 32-bit shell or drivers.
 * **Hardware Interfacing:** * Direct CMOS Real-Time Clock (RTC) querying for live time/date.
   * Inline Assembly execution (CPUID) for physical processor identification.
 * **Persistent Storage:** ATA PIO block device driver capable of reading/writing raw 512-byte sectors to a virtual hard drive.
-* **x86_64 migration:** Separate Multiboot 2 kernel with a serial command shell, normalized memory-map inspection, a zeroing physical page allocator, and fatal processor-exception reports.
+* **x86_64 migration:** Separate Multiboot 2 kernel with a serial command shell, normalized memory-map inspection, a zeroing physical page allocator, memory-map-based supervisor page tables, stack guards, and fatal processor-exception reports.
 * **Build pipeline:** GitHub Actions builds both images and prepares named ISO assets with SHA-256 checksums.
 
 ## Security and next steps
@@ -32,27 +32,34 @@ The `x86_64-iso` target builds a separate Multiboot 2 image with a polled COM1
 command prompt. Type `help` for the available commands. The prompt supports
 basic line editing, raw memory-map inspection with `memmap`, normalized
 page-aligned ranges with `memmap usable`, module reservations with `modules`,
-and page allocator status/self-test commands with `pmm` and `pmm selftest`.
-The allocator only returns pages within the current 1 GiB identity map. It
-zeroes each page before returning it and excludes the kernel, boot-info block,
-low memory, non-usable ranges, and Multiboot modules. It is a single-CPU
+page-table statistics with `paging`, and page allocator status/self-test
+commands with `pmm` and `pmm selftest`. The allocator returns pages below the
+1 GiB identity-map limit, zeroes each page, and excludes the kernel, boot-info
+block, low memory, non-usable ranges, and Multiboot modules. It is a single-CPU
 bring-up allocator without interrupt or SMP locking. The x86_64 kernel
 deliberately does not reuse the 32-bit kernel.
-Its initial 1 GiB identity map remains temporary bootstrap plumbing and is not
-built from the normalized ranges. Kernel text is read-only and executable,
-read-only data is NX, and the rest of the mapped range is supervisor writable
-and NX. The compiler disables builtins, PIE/PIC,
+
+The bootstrap identity map is replaced after memory-map normalization by a
+runtime 4 KiB identity map for the kernel image and usable RAM below 1 GiB.
+Kernel text is read-only and executable; kernel data and usable RAM are
+supervisor writable and NX. Read-only kernel data is supervisor read-only and
+NX. Low memory, reserved ranges, boot modules, boot-info memory, and guard
+pages are unmapped. The bootstrap stack and three exception IST stacks have
+one-page guards. `exception-test lowmem|guard|ro|nx` deliberately triggers
+page faults to exercise those protections. This layout does not yet map RAM
+above 1 GiB, MMIO/device windows, dynamic regions, or user pages. The compiler
+disables builtins, PIE/PIC,
 stack-protector instrumentation without a kernel runtime, unwind metadata, and
 the x86_64 red zone. These settings make freestanding assumptions explicit;
 they do not replace bounds checks, privilege checks, memory protection, or code
 review.
 
 The x86_64 kernel also installs handlers for processor exception vectors 0–31
-and a TSS with dedicated static stacks for double fault, NMI, and machine check.
-Fatal reports include the vector, error code, instruction pointer, and page-fault
-address. `exception-test ud` and `exception-test pf` deliberately trigger a
-fatal exception and halt the VM. These stacks are not guarded, and the kernel
-does not yet handle external interrupts or recover from exceptions.
+and a TSS with dedicated guarded stacks for double fault, NMI, and machine
+check. Fatal reports include the vector, error code, instruction pointer, and
+page-fault address. The `exception-test` commands deliberately trigger a fatal
+exception and halt the VM. The kernel does not yet handle external interrupts
+or recover from exceptions.
 
 ## Prerequisites
 To build and run LolOs locally, you need the following installed on a Linux environment (Ubuntu recommended):
@@ -76,8 +83,8 @@ Clone the repository and use the included Makefile:
    make run-x86_64
    ```
    Use the terminal attached to QEMU's serial port. Type `help` to list
-   commands such as `info`, `memmap`, `memmap usable`, `modules`, `pmm`,
-   `pmm selftest`, `exception-test ud|pf`, `echo`, `clear`, and `halt`. The
+   commands such as `info`, `memmap`, `memmap usable`, `modules`, `paging`,
+   `pmm`, `pmm selftest`, `exception-test`, `echo`, `clear`, and `halt`. The
    exception tests intentionally halt the kernel after reporting the fault.
    QEMU's video
    display is hidden because this checkpoint has no graphics console yet.

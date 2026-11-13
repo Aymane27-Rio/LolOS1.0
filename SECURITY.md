@@ -35,9 +35,10 @@ cryptographic identity, and multi-user policy are outside the current scope.
    long mode and uses serial output.
 2. Add exception reporting, a 64-bit GDT/TSS and IDT, and dedicated exception
    stacks so CPU faults can be diagnosed without cascading into a triple fault.
-3. Replace the temporary identity map with a physical memory map based layout,
-   supervisor-only kernel mappings, guard pages, and W^X permissions before
-   enabling user mode.
+3. Build a runtime identity map from normalized usable ranges and the kernel
+   image. Keep mappings supervisor-only, add stack guard pages, and enforce
+   W^X before enabling user mode. The first-GiB checkpoint implementation is
+   in place; broader physical and virtual address layouts remain future work.
 4. Add a syscall entry path with a documented ABI and safe privilege-transition
    stacks before enabling user mode.
 5. Port allocation and ELF loading only after range validation, page ownership,
@@ -48,24 +49,29 @@ cryptographic identity, and multi-user policy are outside the current scope.
 ## Known gaps
 
 The existing 32-bit paging and ELF loader are experimental and currently lack
-the invariants above. The x86_64 bootstrap uses 4 KiB pages for the first 2 MiB:
-kernel text is read-only and executable, read-only data is NX, and writable
-kernel data is NX. The rest of the temporary first-GiB identity map is
-supervisor writable and NX. This map is not yet constructed from the Multiboot
-memory map and must be replaced before porting applications or device drivers.
+the invariants above. The x86_64 bootstrap uses a temporary first-GiB identity
+map only to initialize the kernel. After normalizing the Multiboot memory map
+and starting the physical page allocator, the kernel builds and activates a
+new 4 KiB identity map for the kernel image and usable pages below 1 GiB. Kernel
+text is read-only and executable, kernel data is writable and NX, and usable
+RAM is supervisor writable and NX. The Multiboot header and read-only kernel
+data are read-only and NX. Low memory, reserved ranges, boot modules,
+boot-info memory, and four stack guard pages are left unmapped. The bootstrap
+stack and the double-fault, NMI, and machine-check IST stacks each have one
+unmapped guard page.
 The checkpoint validates and retains up to 256 raw Multiboot 2 memory-map
 entries. It derives page-aligned usable ranges after merging overlaps and
 excluding non-usable entries, the first MiB, the kernel image, and the boot-info
 block. Multiboot module tags are bounds-checked and each module's physical
-range is excluded as well. A bitmap physical page allocator now consumes those
-ranges below the temporary first-GiB identity-map limit and zeros pages before
-returning them. It is currently single-CPU and has no interrupt or SMP locking;
-the normalized map still does not construct page tables. The boot-info pointer
-must also fall within the currently mapped first GiB. The x86_64 checkpoint
-installs handlers for processor exception vectors 0 through 31, logs the
-exception frame and page-fault address, and uses TSS-backed IST stacks for
-double fault, NMI, and machine check. Those stacks have no guard pages, and the
-handlers halt rather than recover. The checkpoint provides a minimal polled
-COM1 command prompt that runs in ring 0; it does not yet provide user mode,
-external interrupt handling, dynamic page-table construction, filesystems, or a
-security boundary.
+range is excluded as well. A bitmap physical page allocator consumes those
+ranges below the first-GiB mapping limit and zeros pages before returning them.
+It is currently single-CPU and has no interrupt or SMP locking. The boot-info
+pointer must fall within the bootstrap map while it is parsed; boot-info and
+module pages are unmapped afterward. The x86_64 checkpoint installs handlers
+for processor exception vectors 0 through 31, logs the exception frame and
+page-fault address, and uses TSS-backed IST stacks for double fault, NMI, and
+machine check. QEMU smoke tests check unmapped low memory and guard pages, write
+protection on kernel text, and NX protection on writable data. The handlers
+halt rather than recover. This checkpoint has no mapping for physical memory
+above 1 GiB, MMIO/device windows, dynamic mappings, user mode, external
+interrupt handling, filesystems, or a security boundary.

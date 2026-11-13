@@ -2,6 +2,7 @@
 #include "console.h"
 #include "exceptions.h"
 #include "memory_map.h"
+#include "page_table.h"
 #include "pmm.h"
 #include "serial.h"
 
@@ -215,6 +216,14 @@ void x64_kmain(uint32_t boot_magic, uint32_t boot_info)
             __asm__ volatile ("cli; hlt");
         }
     }
+    serial_write("LolOS x86_64: building memory-map-based page tables.\n");
+    if (!x64_page_table_init()) {
+        serial_write("Runtime page-table construction failed; halting.\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("LolOS x86_64: runtime page-table layout active.\n");
     serial_write("LolOS x86_64: boot map valid.\n");
     x64_console_run();
     for (;;) {

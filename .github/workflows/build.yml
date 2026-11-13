@@ -39,13 +39,19 @@ jobs:
     - name: Boot-check x86_64 serial console
       run: python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64.iso regular --timeout 60
 
-    - name: Boot-check x86_64 exception reporting
+    - name: Boot-check x86_64 exceptions and page protections
       run: |
         python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64.iso exception-ud --timeout 60
         python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64.iso exception-pf --timeout 60
+        python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64.iso exception-lowmem --timeout 60
+        python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64.iso exception-guard --timeout 60
+        python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64.iso exception-ro --timeout 60
+        python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64.iso exception-nx --timeout 60
 
     - name: Boot-check Multiboot module reservations
-      run: python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64-module-test.iso module --timeout 60
+      run: |
+        python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64-module-test.iso module --timeout 60
+        python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64-module-test.iso exception-module --timeout 60
 
     - name: Package release ISOs and checksums
       run: make release-assets

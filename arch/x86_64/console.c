@@ -3,12 +3,24 @@
 
 #include "console.h"
 #include "memory_map.h"
+#include "page_table.h"
 #include "pmm.h"
 #include "serial.h"
 
 #define CONSOLE_LINE_CAPACITY 128u
 
 static int swallow_line_feed;
+static volatile uint8_t nx_test_page[4096] __attribute__((aligned(4096)));
+
+extern unsigned char x64_boot_stack_guard[];
+extern unsigned char __kernel_text_start[];
+
+static void print_expected_fault_address(uint64_t address)
+{
+    serial_write("Expected fault address=");
+    serial_write_hex64(address);
+    serial_write("\n");
+}
 
 static int is_space(char character)
 {
@@ -169,7 +181,7 @@ static void show_usable_ranges(void)
         serial_write_hex64(range->length);
         serial_write("\n");
     }
-    serial_write("The allocator uses ranges below 1 GiB; page tables are still bootstrapped separately.\n");
+    serial_write("The allocator uses ranges below 1 GiB; runtime page tables map those pages RW+NX.\n");
 }
 
 static void show_boot_modules(void)
@@ -199,7 +211,7 @@ static void show_page_allocator(void)
 
     x64_pmm_get_stats(&stats);
     serial_write("Physical page allocator: initialized\n"
-                 "Identity-mapped allocation limit: ");
+                 "Physical allocation limit: ");
     serial_write_hex64(X64_PMM_IDENTITY_LIMIT);
     serial_write("\nManaged pages: ");
     serial_write_u32(stats.managed_pages);
@@ -208,6 +220,22 @@ static void show_page_allocator(void)
     serial_write("\nAllocated pages: ");
     serial_write_u32(stats.allocated_pages);
     serial_write("\nNew allocations are zeroed; allocator is single-CPU only.\n");
+}
+
+static void show_page_tables(void)
+{
+    struct x64_page_table_stats stats;
+
+    x64_page_table_get_stats(&stats);
+    serial_write("Runtime page-table root: ");
+    serial_write_hex64(stats.root_physical);
+    serial_write("\nKernel pages mapped: ");
+    serial_write_u32(stats.kernel_pages);
+    serial_write("\nUsable pages mapped: ");
+    serial_write_u32(stats.usable_pages);
+    serial_write("\nPage-table pages allocated: ");
+    serial_write_u32(stats.table_pages);
+    serial_write("\nAll leaves are supervisor-only; writable leaves are NX.\n");
 }
 
 static void execute_command(char *line)
@@ -229,7 +257,8 @@ static void execute_command(char *line)
                      "  memmap [usable] List raw or normalized usable ranges\n"
                      "  modules       List reserved Multiboot modules\n"
                      "  pmm [selftest] Show or test the physical page allocator\n"
-                     "  exception-test ud|pf Trigger a controlled CPU exception\n"
+                     "  paging        Show active page-table layout statistics\n"
+                     "  exception-test ud|pf|lowmem|guard|ro|nx|module Test protection\n"
                      "  echo TEXT     Print TEXT\n"
                      "  clear         Clear the serial terminal\n"
                      "  halt          Halt the CPU\n");
@@ -295,6 +324,14 @@ static void execute_command(char *line)
         }
         return;
     }
+    if (match_command(line, "paging", &arguments)) {
+        if (*arguments != '\0') {
+            serial_write("Usage: paging\n");
+            return;
+        }
+        show_page_tables();
+        return;
+    }
     if (match_command(line, "exception-test", &arguments)) {
         if (string_equals(arguments, "ud")) {
             serial_write("Triggering controlled invalid-opcode exception.\n");
@@ -310,7 +347,65 @@ static void execute_command(char *line)
             serial_write("Page-fault test unexpectedly returned.\n");
             return;
         }
-        serial_write("Usage: exception-test ud|pf\n");
+        if (string_equals(arguments, "lowmem")) {
+            volatile uint8_t *unmapped_address =
+                (volatile uint8_t *)(uintptr_t)0x00080000ULL;
+
+            print_expected_fault_address((uint64_t)(uintptr_t)unmapped_address);
+            serial_write("Reading unmapped low memory.\n");
+            (void)*unmapped_address;
+            serial_write("Low-memory mapping test unexpectedly returned.\n");
+            return;
+        }
+        if (string_equals(arguments, "guard")) {
+            volatile uint8_t *guard_page =
+                (volatile uint8_t *)(uintptr_t)x64_boot_stack_guard;
+
+            print_expected_fault_address((uint64_t)(uintptr_t)guard_page);
+            serial_write("Reading the boot-stack guard page.\n");
+            (void)*guard_page;
+            serial_write("Guard-page test unexpectedly returned.\n");
+            return;
+        }
+        if (string_equals(arguments, "ro")) {
+            volatile uint8_t *text =
+                (volatile uint8_t *)(uintptr_t)__kernel_text_start;
+
+            print_expected_fault_address((uint64_t)(uintptr_t)text);
+            serial_write("Writing to read-only kernel text.\n");
+            *text = 0u;
+            serial_write("Read-only text test unexpectedly returned.\n");
+            return;
+        }
+        if (string_equals(arguments, "nx")) {
+            void (*target)(void) =
+                (void (*)(void))(uintptr_t)&nx_test_page[0];
+            uint64_t target_address = (uint64_t)(uintptr_t)&nx_test_page[0];
+
+            nx_test_page[0] = 0xC3u; /* RET */
+            print_expected_fault_address(target_address);
+            serial_write("Executing from writable NX kernel data.\n");
+            __asm__ volatile ("call *%0" : : "r"(target) : "memory");
+            serial_write("NX protection test unexpectedly returned.\n");
+            return;
+        }
+        if (string_equals(arguments, "module")) {
+            uint64_t module_page;
+            volatile uint8_t *module_memory;
+
+            if (x64_boot_module_range_count == 0u) {
+                serial_write("No boot module is available for this test.\n");
+                return;
+            }
+            module_page = x64_boot_module_ranges[0].base & ~0xFFFULL;
+            module_memory = (volatile uint8_t *)(uintptr_t)module_page;
+            print_expected_fault_address(module_page);
+            serial_write("Reading reserved boot-module memory.\n");
+            (void)*module_memory;
+            serial_write("Module reservation test unexpectedly returned.\n");
+            return;
+        }
+        serial_write("Usage: exception-test ud|pf|lowmem|guard|ro|nx|module\n");
         return;
     }
     if (match_command(line, "echo", &arguments)) {
