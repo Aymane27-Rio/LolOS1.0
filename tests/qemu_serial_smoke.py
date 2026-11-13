@@ -26,6 +26,15 @@ MODULE_COMMANDS = [
     ("halt", b"CPU halted. Reset the VM to continue."),
 ]
 
+EXCEPTION_COMMANDS = {
+    "exception-ud": [
+        ("exception-test ud", b"CPU halted after exception."),
+    ],
+    "exception-pf": [
+        ("exception-test pf", b"CPU halted after exception."),
+    ],
+}
+
 
 def wait_for_output(process, output, marker, start, deadline):
     while True:
@@ -88,8 +97,13 @@ def stop_qemu(process):
 
 
 def run_smoke(iso_path, mode, timeout):
-    commands = REGULAR_COMMANDS if mode == "regular" else MODULE_COMMANDS
-    debug_path = iso_path + ".qemu-debug.log"
+    if mode == "regular":
+        commands = REGULAR_COMMANDS
+    elif mode == "module":
+        commands = MODULE_COMMANDS
+    else:
+        commands = EXCEPTION_COMMANDS[mode]
+    debug_path = iso_path + "." + mode + ".qemu-debug.log"
     process = subprocess.Popen(
         [
             "qemu-system-x86_64",
@@ -126,26 +140,45 @@ def run_smoke(iso_path, mode, timeout):
             process.stdin.write(command.encode("ascii") + b"\r")
             process.stdin.flush()
             cursor = wait_for_output(process, output, expected, cursor, deadline)
-            if command != "halt":
+            terminal_commands = (
+                "halt",
+                "exception-test ud",
+                "exception-test pf",
+            )
+            if command not in terminal_commands:
                 cursor = wait_for_output(process, output, b"lolos> ", cursor, deadline)
 
+        common_required = [
+            b"x86_64 exception handlers initialized (IDT/TSS/IST).",
+            b"LolOS x86_64: boot handoff received.",
+            b"LolOS x86_64: memory map normalized.",
+            b"LolOS x86_64: boot map valid.",
+        ]
         if mode == "regular":
-            required = [
-                b"LolOS x86_64: boot handoff received.",
-                b"LolOS x86_64: memory map normalized.",
-                b"LolOS x86_64: boot map valid.",
+            required = common_required + [
                 b"Boot modules reserved: 0",
                 b"Normalized usable page ranges:",
                 b"Physical page allocator: initialized",
                 b"ci-console-ok",
             ]
-        else:
-            required = [
-                b"LolOS x86_64: boot handoff received.",
-                b"LolOS x86_64: memory map normalized.",
-                b"LolOS x86_64: boot map valid.",
+        elif mode == "module":
+            required = common_required + [
                 b"Boot modules reserved: 1",
                 b"module[0] base=",
+            ]
+        elif mode == "exception-ud":
+            required = common_required + [
+                b"invalid opcode (#UD)",
+                b"vector=6 error=0x0000000000000000",
+                b"RIP=0x",
+                b"CPU halted after exception.",
+            ]
+        else:
+            required = common_required + [
+                b"page fault (#PF)",
+                b"vector=14 error=0x0000000000000002",
+                b"CR2=0x0000004000000000",
+                b"CPU halted after exception.",
             ]
         for marker in required:
             if marker not in output:
@@ -187,7 +220,10 @@ def run_smoke(iso_path, mode, timeout):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("iso")
-    parser.add_argument("mode", choices=("regular", "module"))
+    parser.add_argument(
+        "mode",
+        choices=("regular", "module", "exception-ud", "exception-pf"),
+    )
     parser.add_argument("--timeout", type=float, default=20.0)
     args = parser.parse_args()
 

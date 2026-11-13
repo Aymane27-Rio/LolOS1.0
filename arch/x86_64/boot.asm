@@ -21,6 +21,7 @@ mb2_header_end:
 section .text
 bits 32
 global _start32
+global x64_boot_stack_top
 extern x64_kmain
 extern __kernel_text_start
 extern __kernel_text_end
@@ -243,5 +244,6 @@ alignb 16
 stack_bottom:
     resb 16384
 stack_top:
+x64_boot_stack_top:
 
 section .note.GNU-stack noalloc noexec nowrite progbits

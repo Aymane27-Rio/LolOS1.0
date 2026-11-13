@@ -33,14 +33,16 @@ cryptographic identity, and multi-user policy are outside the current scope.
 1. Keep the current 32-bit system as a reference while building a separate
    Multiboot 2 x86_64 image. The initial image only verifies the transition to
    long mode and uses serial output.
-2. Replace the temporary identity map with a physical memory map based layout,
+2. Add exception reporting, a 64-bit GDT/TSS and IDT, and dedicated exception
+   stacks so CPU faults can be diagnosed without cascading into a triple fault.
+3. Replace the temporary identity map with a physical memory map based layout,
    supervisor-only kernel mappings, guard pages, and W^X permissions before
    enabling user mode.
-3. Add exception reporting, a 64-bit GDT/TSS and IDT, safe interrupt stacks,
-   and a syscall entry path with a documented ABI.
-4. Port allocation and ELF loading only after range validation, page ownership,
+4. Add a syscall entry path with a documented ABI and safe privilege-transition
+   stacks before enabling user mode.
+5. Port allocation and ELF loading only after range validation, page ownership,
    user address limits, and permission handling are specified and reviewed.
-5. Add malformed-input tests, emulator boot coverage, and targeted fuzzing for
+6. Add malformed-input tests, emulator boot coverage, and targeted fuzzing for
    parsers and syscall boundaries before describing isolation as reliable.
 
 ## Known gaps
@@ -60,6 +62,10 @@ ranges below the temporary first-GiB identity-map limit and zeros pages before
 returning them. It is currently single-CPU and has no interrupt or SMP locking;
 the normalized map still does not construct page tables. The boot-info pointer
 must also fall within the currently mapped first GiB. The x86_64 checkpoint
-provides a minimal polled COM1 command prompt that runs in ring 0. It does not
-yet provide user mode, interrupts, a page-table allocator, filesystems, or a
+installs handlers for processor exception vectors 0 through 31, logs the
+exception frame and page-fault address, and uses TSS-backed IST stacks for
+double fault, NMI, and machine check. Those stacks have no guard pages, and the
+handlers halt rather than recover. The checkpoint provides a minimal polled
+COM1 command prompt that runs in ring 0; it does not yet provide user mode,
+external interrupt handling, dynamic page-table construction, filesystems, or a
 security boundary.
