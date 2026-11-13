@@ -33,11 +33,14 @@ jobs:
     - name: Build Multiboot module reservation test image
       run: make x86_64-module-test-iso
 
+    - name: Record QEMU version
+      run: qemu-system-x86_64 --version
+
     - name: Boot-check x86_64 serial console
-      run: python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64.iso regular
+      run: python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64.iso regular --timeout 60
 
     - name: Boot-check Multiboot module reservations
-      run: python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64-module-test.iso module
+      run: python3 tests/qemu_serial_smoke.py build/x86_64/lolos-x86_64-module-test.iso module --timeout 60
 
     - name: Package release ISOs and checksums
       run: make release-assets

@@ -2,6 +2,7 @@
 
 #include "memory_map.h"
 #include "pmm.h"
+#include "serial.h"
 
 #define X64_PMM_BITMAP_BYTES ((X64_PMM_PAGE_COUNT + 7u) / 8u)
 
@@ -63,6 +64,7 @@ int x64_pmm_init(void)
     uint32_t index;
     uint64_t previous_end = 0u;
 
+    serial_write("PMM: clearing allocator bitmaps.\n");
     allocator_initialized = 0;
     managed_page_count = 0u;
     free_page_count = 0u;
@@ -72,10 +74,15 @@ int x64_pmm_init(void)
         managed_bitmap[index] = 0u;
         allocated_bitmap[index] = 0u;
     }
+    serial_write("PMM: allocator bitmaps cleared.\n");
 
     if (x64_usable_range_count == 0u) {
+        serial_write("PMM: normalized range list is empty.\n");
         return 0;
     }
+    serial_write("PMM: normalized range count=");
+    serial_write_u32(x64_usable_range_count);
+    serial_write("\n");
 
     for (index = 0u; index < x64_usable_range_count; index++) {
         const struct x64_usable_range *range = &x64_usable_ranges[index];
@@ -84,6 +91,14 @@ int x64_pmm_init(void)
         uint32_t first_page;
         uint32_t end_page;
         uint32_t page_count;
+
+        serial_write("PMM: range ");
+        serial_write_u32(index);
+        serial_write(" base=");
+        serial_write_hex64(range->base);
+        serial_write(" length=");
+        serial_write_hex64(range->length);
+        serial_write("\n");
 
         if (range->length == 0u ||
             (range->base & (X64_PMM_PAGE_SIZE - 1u)) != 0u ||
@@ -105,15 +120,26 @@ int x64_pmm_init(void)
         first_page = (uint32_t)(range->base / X64_PMM_PAGE_SIZE);
         end_page = (uint32_t)(usable_end / X64_PMM_PAGE_SIZE);
         page_count = end_page - first_page;
+        serial_write("PMM: setting page bits [");
+        serial_write_u32(first_page);
+        serial_write(", ");
+        serial_write_u32(end_page);
+        serial_write(")\n");
         bitmap_set_range(managed_bitmap, first_page, end_page);
         managed_page_count += page_count;
         free_page_count += page_count;
+        serial_write("PMM: range marked; managed pages=");
+        serial_write_u32(managed_page_count);
+        serial_write("\n");
     }
 
     if (managed_page_count == 0u) {
         return 0;
     }
     allocator_initialized = 1;
+    serial_write("PMM: initialization complete; free pages=");
+    serial_write_u32(free_page_count);
+    serial_write("\n");
     return 1;
 }
 

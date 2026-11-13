@@ -89,6 +89,7 @@ def stop_qemu(process):
 
 def run_smoke(iso_path, mode, timeout):
     commands = REGULAR_COMMANDS if mode == "regular" else MODULE_COMMANDS
+    debug_path = iso_path + ".qemu-debug.log"
     process = subprocess.Popen(
         [
             "qemu-system-x86_64",
@@ -104,6 +105,10 @@ def run_smoke(iso_path, mode, timeout):
             "none",
             "-no-reboot",
             "-no-shutdown",
+            "-d",
+            "int,guest_errors,cpu_reset",
+            "-D",
+            debug_path,
         ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -112,6 +117,7 @@ def run_smoke(iso_path, mode, timeout):
     )
     output = bytearray()
     deadline = time.monotonic() + timeout
+    failure = None
 
     try:
         prompt_end = wait_for_output(process, output, b"lolos> ", 0, deadline)
@@ -147,15 +153,30 @@ def run_smoke(iso_path, mode, timeout):
 
         if mode == "module":
             verify_module_pages_are_reserved(output)
-    except Exception:
-        sys.stdout.buffer.write(output)
-        raise
+    except Exception as error:
+        failure = error
     finally:
         stop_qemu(process)
         if process.stdin:
             process.stdin.close()
         if process.stdout:
+            while select.select([process.stdout], [], [], 0)[0]:
+                chunk = os.read(process.stdout.fileno(), 4096)
+                if not chunk:
+                    break
+                output.extend(chunk)
             process.stdout.close()
+
+    if failure is not None:
+        sys.stdout.buffer.write(output)
+        try:
+            with open(debug_path, encoding="utf-8", errors="replace") as debug_file:
+                debug_lines = debug_file.readlines()
+            sys.stdout.write("\n--- QEMU debug log tail ---\n")
+            sys.stdout.writelines(debug_lines[-100:])
+        except OSError:
+            sys.stdout.write("\nQEMU debug log was not created.\n")
+        raise failure
 
     sys.stdout.buffer.write(output)
     sys.stdout.buffer.write(
