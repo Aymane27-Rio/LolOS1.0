@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "console.h"
+#include "exceptions.h"
 #include "memory_map.h"
 #include "pmm.h"
 #include "serial.h"
@@ -187,6 +188,8 @@ void x64_kmain(uint32_t boot_magic, uint32_t boot_info)
     uint32_t boot_info_size;
 
     serial_init();
+    x64_exception_init();
+    serial_write("x86_64 exception handlers initialized (IDT/TSS/IST).\n");
     serial_write("LolOS x86_64: boot handoff received.\n");
     if (!parse_memory_map(boot_magic, boot_info, &boot_info_size)) {
         serial_write("Memory-map parsing failed; halting.\n");

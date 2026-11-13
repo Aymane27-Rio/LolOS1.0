@@ -229,6 +229,7 @@ static void execute_command(char *line)
                      "  memmap [usable] List raw or normalized usable ranges\n"
                      "  modules       List reserved Multiboot modules\n"
                      "  pmm [selftest] Show or test the physical page allocator\n"
+                     "  exception-test ud|pf Trigger a controlled CPU exception\n"
                      "  echo TEXT     Print TEXT\n"
                      "  clear         Clear the serial terminal\n"
                      "  halt          Halt the CPU\n");
@@ -292,6 +293,24 @@ static void execute_command(char *line)
             serial_write("Usage: pmm [selftest]\n");
             return;
         }
+        return;
+    }
+    if (match_command(line, "exception-test", &arguments)) {
+        if (string_equals(arguments, "ud")) {
+            serial_write("Triggering controlled invalid-opcode exception.\n");
+            __asm__ volatile ("ud2");
+            return;
+        }
+        if (string_equals(arguments, "pf")) {
+            volatile uint8_t *unmapped_address =
+                (volatile uint8_t *)(uintptr_t)0x0000004000000000ULL;
+
+            serial_write("Triggering controlled page-fault exception.\n");
+            *unmapped_address = 0u;
+            serial_write("Page-fault test unexpectedly returned.\n");
+            return;
+        }
+        serial_write("Usage: exception-test ud|pf\n");
         return;
     }
     if (match_command(line, "echo", &arguments)) {

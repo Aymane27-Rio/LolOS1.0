@@ -18,7 +18,7 @@ does not reuse the 32-bit shell or drivers.
 * **Hardware Interfacing:** * Direct CMOS Real-Time Clock (RTC) querying for live time/date.
   * Inline Assembly execution (CPUID) for physical processor identification.
 * **Persistent Storage:** ATA PIO block device driver capable of reading/writing raw 512-byte sectors to a virtual hard drive.
-* **x86_64 migration:** Separate Multiboot 2 kernel with a serial command shell, normalized memory-map inspection, and a zeroing physical page allocator.
+* **x86_64 migration:** Separate Multiboot 2 kernel with a serial command shell, normalized memory-map inspection, a zeroing physical page allocator, and fatal processor-exception reports.
 * **Build pipeline:** GitHub Actions builds both images and prepares named ISO assets with SHA-256 checksums.
 
 ## Security and next steps
@@ -47,6 +47,13 @@ the x86_64 red zone. These settings make freestanding assumptions explicit;
 they do not replace bounds checks, privilege checks, memory protection, or code
 review.
 
+The x86_64 kernel also installs handlers for processor exception vectors 0–31
+and a TSS with dedicated static stacks for double fault, NMI, and machine check.
+Fatal reports include the vector, error code, instruction pointer, and page-fault
+address. `exception-test ud` and `exception-test pf` deliberately trigger a
+fatal exception and halt the VM. These stacks are not guarded, and the kernel
+does not yet handle external interrupts or recover from exceptions.
+
 ## Prerequisites
 To build and run LolOs locally, you need the following installed on a Linux environment (Ubuntu recommended):
 * `build-essential` and `gcc-multilib` (GCC, Make, 32-bit compiler support)
@@ -70,7 +77,9 @@ Clone the repository and use the included Makefile:
    ```
    Use the terminal attached to QEMU's serial port. Type `help` to list
    commands such as `info`, `memmap`, `memmap usable`, `modules`, `pmm`,
-   `pmm selftest`, `echo`, `clear`, and `halt`. QEMU's video
+   `pmm selftest`, `exception-test ud|pf`, `echo`, `clear`, and `halt`. The
+   exception tests intentionally halt the kernel after reporting the fault.
+   QEMU's video
    display is hidden because this checkpoint has no graphics console yet.
 3. Clean up build artifacts after finishing up (Note: this deletes `disk.img` and any packaged assets in `dist/`):
    ```bash
