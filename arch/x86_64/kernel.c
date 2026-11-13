@@ -187,6 +187,7 @@ void x64_kmain(uint32_t boot_magic, uint32_t boot_info)
     uint32_t boot_info_size;
 
     serial_init();
+    serial_write("LolOS x86_64: boot handoff received.\n");
     if (!parse_memory_map(boot_magic, boot_info, &boot_info_size)) {
         serial_write("Memory-map parsing failed; halting.\n");
         for (;;) {
@@ -203,6 +204,8 @@ void x64_kmain(uint32_t boot_magic, uint32_t boot_info)
             __asm__ volatile ("cli; hlt");
         }
     }
+    serial_write("LolOS x86_64: memory map normalized.\n");
+    serial_write("LolOS x86_64: initializing physical page allocator.\n");
     if (!x64_pmm_init()) {
         serial_write("Physical page allocator initialization failed; halting.\n");
         for (;;) {
