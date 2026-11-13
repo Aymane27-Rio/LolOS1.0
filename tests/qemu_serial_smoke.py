@@ -106,7 +106,7 @@ def run_smoke(iso_path, mode, timeout):
             "-no-reboot",
             "-no-shutdown",
             "-d",
-            "int,guest_errors,cpu_reset",
+            "int,guest_errors,cpu_reset,in_asm",
             "-D",
             debug_path,
         ],
@@ -173,7 +173,7 @@ def run_smoke(iso_path, mode, timeout):
             with open(debug_path, encoding="utf-8", errors="replace") as debug_file:
                 debug_lines = debug_file.readlines()
             sys.stdout.write("\n--- QEMU debug log tail ---\n")
-            sys.stdout.writelines(debug_lines[-100:])
+            sys.stdout.writelines(debug_lines[-200:])
         except OSError:
             sys.stdout.write("\nQEMU debug log was not created.\n")
         raise failure
