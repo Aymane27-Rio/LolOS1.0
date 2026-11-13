@@ -28,6 +28,25 @@ static void bitmap_clear(uint8_t *bitmap, uint32_t bit)
     bitmap[bit / 8u] &= (uint8_t)~(uint8_t)(1u << (bit % 8u));
 }
 
+static void bitmap_set_range(uint8_t *bitmap, uint32_t first_bit,
+                             uint32_t end_bit)
+{
+    uint32_t bit = first_bit;
+
+    while (bit < end_bit && (bit & 7u) != 0u) {
+        bitmap_set(bitmap, bit);
+        bit++;
+    }
+    while (end_bit - bit >= 8u) {
+        bitmap[bit / 8u] = 0xFFu;
+        bit += 8u;
+    }
+    while (bit < end_bit) {
+        bitmap_set(bitmap, bit);
+        bit++;
+    }
+}
+
 static void zero_physical_page(uint64_t physical_address)
 {
     volatile uint8_t *page =
@@ -64,7 +83,7 @@ int x64_pmm_init(void)
         uint64_t usable_end;
         uint32_t first_page;
         uint32_t end_page;
-        uint32_t page;
+        uint32_t page_count;
 
         if (range->length == 0u ||
             (range->base & (X64_PMM_PAGE_SIZE - 1u)) != 0u ||
@@ -85,14 +104,10 @@ int x64_pmm_init(void)
             ? end : X64_PMM_IDENTITY_LIMIT;
         first_page = (uint32_t)(range->base / X64_PMM_PAGE_SIZE);
         end_page = (uint32_t)(usable_end / X64_PMM_PAGE_SIZE);
-        for (page = first_page; page < end_page; page++) {
-            if (bitmap_test(managed_bitmap, page)) {
-                return 0;
-            }
-            bitmap_set(managed_bitmap, page);
-            managed_page_count++;
-            free_page_count++;
-        }
+        page_count = end_page - first_page;
+        bitmap_set_range(managed_bitmap, first_page, end_page);
+        managed_page_count += page_count;
+        free_page_count += page_count;
     }
 
     if (managed_page_count == 0u) {
