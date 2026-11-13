@@ -31,6 +31,26 @@ SECTIONS
     .bss ALIGN(4K) (NOLOAD) : {
         *(COMMON)
         *(.bss .bss.*)
+    } :data
+    .exception_stacks ALIGN(4K) (NOLOAD) : {
+        __x64_double_fault_guard_page = .;
+        . += 0x1000;
+        __x64_double_fault_stack_bottom = .;
+        . += 0x1000;
+        __x64_double_fault_stack_top = .;
+
+        __x64_nmi_guard_page = .;
+        . += 0x1000;
+        __x64_nmi_stack_bottom = .;
+        . += 0x1000;
+        __x64_nmi_stack_top = .;
+
+        __x64_machine_check_guard_page = .;
+        . += 0x1000;
+        __x64_machine_check_stack_bottom = .;
+        . += 0x1000;
+        __x64_machine_check_stack_top = .;
+
         __kernel_end = .;
     } :data
     ASSERT(__kernel_end <= 0x200000,

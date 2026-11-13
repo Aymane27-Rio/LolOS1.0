@@ -67,14 +67,14 @@ typedef void (*x64_exception_stub)(void);
 
 extern x64_exception_stub x64_exception_stub_table[X64_EXCEPTION_COUNT];
 extern unsigned char x64_boot_stack_top[];
+extern unsigned char __x64_double_fault_stack_top[];
+extern unsigned char __x64_nmi_stack_top[];
+extern unsigned char __x64_machine_check_stack_top[];
 
 static struct x64_idt_entry x64_idt[X64_EXCEPTION_COUNT]
     __attribute__((aligned(16)));
 static struct x64_tss x64_tss __attribute__((aligned(16)));
 static uint64_t x64_gdt[5] __attribute__((aligned(16)));
-static uint8_t double_fault_stack[4096] __attribute__((aligned(16)));
-static uint8_t nmi_stack[4096] __attribute__((aligned(16)));
-static uint8_t machine_check_stack[4096] __attribute__((aligned(16)));
 static volatile uint32_t exception_handler_active;
 
 _Static_assert(sizeof(struct x64_tss) == 104u, "invalid x86_64 TSS size");
@@ -116,11 +116,9 @@ void x64_exception_init(void)
     uint32_t vector;
 
     x64_tss.rsp0 = (uint64_t)(uintptr_t)x64_boot_stack_top;
-    x64_tss.ist1 = (uint64_t)(uintptr_t)(double_fault_stack +
-                                         sizeof(double_fault_stack));
-    x64_tss.ist2 = (uint64_t)(uintptr_t)(nmi_stack + sizeof(nmi_stack));
-    x64_tss.ist3 = (uint64_t)(uintptr_t)(machine_check_stack +
-                                         sizeof(machine_check_stack));
+    x64_tss.ist1 = (uint64_t)(uintptr_t)__x64_double_fault_stack_top;
+    x64_tss.ist2 = (uint64_t)(uintptr_t)__x64_nmi_stack_top;
+    x64_tss.ist3 = (uint64_t)(uintptr_t)__x64_machine_check_stack_top;
     x64_tss.io_map_base = (uint16_t)sizeof(x64_tss);
 
     x64_gdt[0] = 0u;

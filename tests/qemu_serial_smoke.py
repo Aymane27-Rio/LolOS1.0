@@ -11,6 +11,7 @@ import time
 REGULAR_COMMANDS = [
     ("help", b"Commands:"),
     ("info", b"Memory-map entries retained:"),
+    ("paging", b"Runtime page-table root:"),
     ("memmap usable", b"The allocator uses ranges below 1 GiB;"),
     ("pmm", b"Physical page allocator: initialized"),
     ("pmm selftest", b"PMM self-test passed; pages returned and reallocation zeroed."),
@@ -33,6 +34,30 @@ EXCEPTION_COMMANDS = {
     "exception-pf": [
         ("exception-test pf", b"CPU halted after exception."),
     ],
+    "exception-lowmem": [
+        ("exception-test lowmem", b"CPU halted after exception."),
+    ],
+    "exception-guard": [
+        ("exception-test guard", b"CPU halted after exception."),
+    ],
+    "exception-ro": [
+        ("exception-test ro", b"CPU halted after exception."),
+    ],
+    "exception-nx": [
+        ("exception-test nx", b"CPU halted after exception."),
+    ],
+    "exception-module": [
+        ("exception-test module", b"CPU halted after exception."),
+    ],
+}
+
+PAGE_FAULT_EXPECTATIONS = {
+    "exception-pf": (b"0x0000000000000002", b"0x0000004000000000"),
+    "exception-lowmem": (b"0x0000000000000000", b"0x0000000000080000"),
+    "exception-guard": (b"0x0000000000000000", None),
+    "exception-ro": (b"0x0000000000000003", None),
+    "exception-nx": (b"0x0000000000000011", None),
+    "exception-module": (b"0x0000000000000000", None),
 }
 
 
@@ -140,18 +165,14 @@ def run_smoke(iso_path, mode, timeout):
             process.stdin.write(command.encode("ascii") + b"\r")
             process.stdin.flush()
             cursor = wait_for_output(process, output, expected, cursor, deadline)
-            terminal_commands = (
-                "halt",
-                "exception-test ud",
-                "exception-test pf",
-            )
-            if command not in terminal_commands:
+            if command != "halt" and not command.startswith("exception-test "):
                 cursor = wait_for_output(process, output, b"lolos> ", cursor, deadline)
 
         common_required = [
             b"x86_64 exception handlers initialized (IDT/TSS/IST).",
             b"LolOS x86_64: boot handoff received.",
             b"LolOS x86_64: memory map normalized.",
+            b"LolOS x86_64: runtime page-table layout active.",
             b"LolOS x86_64: boot map valid.",
         ]
         if mode == "regular":
@@ -173,16 +194,30 @@ def run_smoke(iso_path, mode, timeout):
                 b"RIP=0x",
                 b"CPU halted after exception.",
             ]
-        else:
+        elif mode in PAGE_FAULT_EXPECTATIONS:
+            expected_error, expected_address = PAGE_FAULT_EXPECTATIONS[mode]
             required = common_required + [
                 b"page fault (#PF)",
-                b"vector=14 error=0x0000000000000002",
-                b"CR2=0x0000004000000000",
+                b"vector=14 error=" + expected_error,
                 b"CPU halted after exception.",
             ]
         for marker in required:
             if marker not in output:
                 raise RuntimeError("expected serial output missing: {!r}".format(marker))
+
+        if mode in PAGE_FAULT_EXPECTATIONS:
+            _, expected_address = PAGE_FAULT_EXPECTATIONS[mode]
+            if expected_address is None:
+                expected_match = re.search(
+                    rb"Expected fault address=(0x[0-9a-fA-F]{16})", output
+                )
+                if not expected_match:
+                    raise RuntimeError("expected fault address was not printed")
+                expected_address = expected_match.group(1)
+            actual_match = re.search(rb"CR2=(0x[0-9a-fA-F]{16})", output)
+            if (not actual_match or
+                    actual_match.group(1).lower() != expected_address.lower()):
+                raise RuntimeError("page-fault CR2 did not match the expected address")
 
         if mode == "module":
             verify_module_pages_are_reserved(output)
@@ -222,7 +257,11 @@ def main():
     parser.add_argument("iso")
     parser.add_argument(
         "mode",
-        choices=("regular", "module", "exception-ud", "exception-pf"),
+        choices=(
+            "regular", "module", "exception-ud", "exception-pf",
+            "exception-lowmem", "exception-guard", "exception-ro", "exception-nx",
+            "exception-module",
+        ),
     )
     parser.add_argument("--timeout", type=float, default=20.0)
     args = parser.parse_args()
