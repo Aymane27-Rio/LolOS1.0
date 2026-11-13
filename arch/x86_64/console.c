@@ -3,6 +3,7 @@
 
 #include "console.h"
 #include "memory_map.h"
+#include "pmm.h"
 #include "serial.h"
 
 #define CONSOLE_LINE_CAPACITY 128u
@@ -168,7 +169,45 @@ static void show_usable_ranges(void)
         serial_write_hex64(range->length);
         serial_write("\n");
     }
-    serial_write("These ranges are not yet used by an allocator or page tables.\n");
+    serial_write("The allocator uses ranges below 1 GiB; page tables are still bootstrapped separately.\n");
+}
+
+static void show_boot_modules(void)
+{
+    uint32_t index;
+
+    serial_write("Boot modules reserved: ");
+    serial_write_u32(x64_boot_module_range_count);
+    serial_write("\n");
+    for (index = 0u; index < x64_boot_module_range_count; index++) {
+        const struct x64_boot_module_range *module =
+            &x64_boot_module_ranges[index];
+
+        serial_write("module[");
+        serial_write_u32(index);
+        serial_write("] base=");
+        serial_write_hex64(module->base);
+        serial_write(" length=");
+        serial_write_hex64(module->length);
+        serial_write("\n");
+    }
+}
+
+static void show_page_allocator(void)
+{
+    struct x64_pmm_stats stats;
+
+    x64_pmm_get_stats(&stats);
+    serial_write("Physical page allocator: initialized\n"
+                 "Identity-mapped allocation limit: ");
+    serial_write_hex64(X64_PMM_IDENTITY_LIMIT);
+    serial_write("\nManaged pages: ");
+    serial_write_u32(stats.managed_pages);
+    serial_write("\nFree pages: ");
+    serial_write_u32(stats.free_pages);
+    serial_write("\nAllocated pages: ");
+    serial_write_u32(stats.allocated_pages);
+    serial_write("\nNew allocations are zeroed; allocator is single-CPU only.\n");
 }
 
 static void execute_command(char *line)
@@ -188,6 +227,8 @@ static void execute_command(char *line)
                      "  help          Show this command list\n"
                      "  info          Show checkpoint status\n"
                      "  memmap [usable] List raw or normalized usable ranges\n"
+                     "  modules       List reserved Multiboot modules\n"
+                     "  pmm [selftest] Show or test the physical page allocator\n"
                      "  echo TEXT     Print TEXT\n"
                      "  clear         Clear the serial terminal\n"
                      "  halt          Halt the CPU\n");
@@ -203,9 +244,20 @@ static void execute_command(char *line)
                      "Memory-map entries retained: ");
         serial_write_u32(x64_memory_map_entry_count);
         serial_write("\nThis kernel runs in ring 0 and has no user isolation.\n");
+        serial_write("Boot modules reserved: ");
+        serial_write_u32(x64_boot_module_range_count);
+        serial_write("\n");
         serial_write("Normalized usable page ranges: ");
         serial_write_u32(x64_usable_range_count);
         serial_write("\n");
+        {
+            struct x64_pmm_stats stats;
+
+            x64_pmm_get_stats(&stats);
+            serial_write("Free physical pages: ");
+            serial_write_u32(stats.free_pages);
+            serial_write("\n");
+        }
         return;
     }
     if (match_command(line, "memmap", &arguments)) {
@@ -215,6 +267,29 @@ static void execute_command(char *line)
             show_usable_ranges();
         } else {
             serial_write("Usage: memmap [usable]\n");
+            return;
+        }
+        return;
+    }
+    if (match_command(line, "modules", &arguments)) {
+        if (*arguments != '\0') {
+            serial_write("Usage: modules\n");
+            return;
+        }
+        show_boot_modules();
+        return;
+    }
+    if (match_command(line, "pmm", &arguments)) {
+        if (*arguments == '\0') {
+            show_page_allocator();
+        } else if (string_equals(arguments, "selftest")) {
+            if (x64_pmm_self_test()) {
+                serial_write("PMM self-test passed; pages returned and reallocation zeroed.\n");
+            } else {
+                serial_write("PMM self-test failed.\n");
+            }
+        } else {
+            serial_write("Usage: pmm [selftest]\n");
             return;
         }
         return;
