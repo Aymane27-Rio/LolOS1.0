@@ -18,7 +18,7 @@ does not reuse the 32-bit shell or drivers.
 * **Hardware Interfacing:** * Direct CMOS Real-Time Clock (RTC) querying for live time/date.
   * Inline Assembly execution (CPUID) for physical processor identification.
 * **Persistent Storage:** ATA PIO block device driver capable of reading/writing raw 512-byte sectors to a virtual hard drive.
-* **x86_64 migration:** Separate Multiboot 2 kernel with a small serial command shell and raw/normalized memory-map inspection.
+* **x86_64 migration:** Separate Multiboot 2 kernel with a serial command shell, normalized memory-map inspection, and a zeroing physical page allocator.
 * **Build pipeline:** GitHub Actions builds both images and prepares named ISO assets with SHA-256 checksums.
 
 ## Security and next steps
@@ -30,12 +30,18 @@ for the current security goals, known gaps, and migration checkpoints.
 
 The `x86_64-iso` target builds a separate Multiboot 2 image with a polled COM1
 command prompt. Type `help` for the available commands. The prompt supports
-basic line editing, raw memory-map inspection with `memmap`, and normalized
-page-aligned ranges with `memmap usable`. It deliberately does not reuse the
-32-bit kernel. Its initial 1 GiB identity map remains temporary bootstrap
-plumbing and is not built from the normalized ranges. Kernel text is read-only
-and executable, read-only data is NX, and the rest of the mapped range is
-supervisor writable and NX. The compiler disables builtins, PIE/PIC,
+basic line editing, raw memory-map inspection with `memmap`, normalized
+page-aligned ranges with `memmap usable`, module reservations with `modules`,
+and page allocator status/self-test commands with `pmm` and `pmm selftest`.
+The allocator only returns pages within the current 1 GiB identity map. It
+zeroes each page before returning it and excludes the kernel, boot-info block,
+low memory, non-usable ranges, and Multiboot modules. It is a single-CPU
+bring-up allocator without interrupt or SMP locking. The x86_64 kernel
+deliberately does not reuse the 32-bit kernel.
+Its initial 1 GiB identity map remains temporary bootstrap plumbing and is not
+built from the normalized ranges. Kernel text is read-only and executable,
+read-only data is NX, and the rest of the mapped range is supervisor writable
+and NX. The compiler disables builtins, PIE/PIC,
 stack-protector instrumentation without a kernel runtime, unwind metadata, and
 the x86_64 red zone. These settings make freestanding assumptions explicit;
 they do not replace bounds checks, privilege checks, memory protection, or code
@@ -63,7 +69,8 @@ Clone the repository and use the included Makefile:
    make run-x86_64
    ```
    Use the terminal attached to QEMU's serial port. Type `help` to list
-   commands such as `info`, `memmap`, `memmap usable`, `echo`, `clear`, and `halt`. QEMU's video
+   commands such as `info`, `memmap`, `memmap usable`, `modules`, `pmm`,
+   `pmm selftest`, `echo`, `clear`, and `halt`. QEMU's video
    display is hidden because this checkpoint has no graphics console yet.
 3. Clean up build artifacts after finishing up (Note: this deletes `disk.img` and any packaged assets in `dist/`):
    ```bash
@@ -111,8 +118,9 @@ qemu-system-i386 -cdrom lolos-32bit-reference.iso
 ```
 
 Both images are experimental. The x86_64 image is a ring-0 bring-up console;
-its normalized memory-map ranges do not yet drive allocation or page-table
-construction. Neither image should be treated as a secure or
+its physical page allocator only serves the temporary identity-mapped first
+GiB and is not yet used for page-table construction or user memory. Neither
+image should be treated as a secure or
 general-purpose operating system. See [SECURITY.md](SECURITY.md) and the notes
 attached to each prerelease. The maintainer release steps are in
 [RELEASING.md](RELEASING.md).

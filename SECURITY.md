@@ -54,9 +54,12 @@ memory map and must be replaced before porting applications or device drivers.
 The checkpoint validates and retains up to 256 raw Multiboot 2 memory-map
 entries. It derives page-aligned usable ranges after merging overlaps and
 excluding non-usable entries, the first MiB, the kernel image, and the boot-info
-block. These normalized ranges are not yet used for allocation or page-table
-construction, so the temporary identity map remains in place. Its boot-info
-pointer must also fall within the currently mapped first GiB. The x86_64
-checkpoint provides a minimal polled COM1 command prompt that runs in ring 0.
-It does not yet provide user mode, interrupts, a memory allocator, filesystems,
-or a security boundary.
+block. Multiboot module tags are bounds-checked and each module's physical
+range is excluded as well. A bitmap physical page allocator now consumes those
+ranges below the temporary first-GiB identity-map limit and zeros pages before
+returning them. It is currently single-CPU and has no interrupt or SMP locking;
+the normalized map still does not construct page tables. The boot-info pointer
+must also fall within the currently mapped first GiB. The x86_64 checkpoint
+provides a minimal polled COM1 command prompt that runs in ring 0. It does not
+yet provide user mode, interrupts, a page-table allocator, filesystems, or a
+security boundary.

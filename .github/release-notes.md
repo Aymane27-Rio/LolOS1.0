@@ -6,11 +6,12 @@ secure operating system.
 
 - `lolos-x86_64-checkpoint.iso` boots through Multiboot 2, enters x86_64 long
   mode, validates and retains raw memory-map entries, derives page-aligned
-  usable ranges after reservations, then opens a minimal polled COM1 command
-  prompt. Use `help`, `info`, `memmap`, and `memmap usable` to explore it. The
-  normalized ranges are not yet used for allocation or page-table construction.
-  The checkpoint has no user mode, interrupts, general device drivers, or
-  network stack.
+  usable ranges after reservations, and provides a zeroing page allocator for
+  the currently identity-mapped first GiB. Use `help`, `info`, `memmap`,
+  `memmap usable`, `modules`, `pmm`, and `pmm selftest` to explore it. The
+  allocator is single-CPU only and is not used to construct page tables. The
+  checkpoint has no user mode, interrupts, general device drivers, or network
+  stack.
 - `lolos-32bit-reference.iso` is the separate experimental 32-bit reference
   system. Its paging, ELF, syscall, filesystem, and storage paths are
   prototypes and are not security boundaries.

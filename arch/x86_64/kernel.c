@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "console.h"
 #include "memory_map.h"
+#include "pmm.h"
 #include "serial.h"
 
 #define MB2_BOOT_MAGIC 0x36D76289u
@@ -25,6 +26,13 @@ struct mb2_mmap_entry {
     uint32_t reserved;
 } __attribute__((packed));
 
+struct mb2_module_tag {
+    uint32_t type;
+    uint32_t size;
+    uint32_t module_start;
+    uint32_t module_end;
+} __attribute__((packed));
+
 struct x64_memory_region
     x64_memory_map_entries[X64_MEMORY_MAP_MAX_ENTRIES];
 uint32_t x64_memory_map_entry_count;
@@ -43,6 +51,7 @@ static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info,
     int found_usable_memory = 0;
 
     x64_memory_map_entry_count = 0;
+    x64_memory_map_reset_boot_modules();
 
     if (boot_magic != MB2_BOOT_MAGIC) {
         serial_write("Multiboot 2: invalid boot magic\n");
@@ -130,6 +139,32 @@ static int parse_memory_map(uint32_t boot_magic, uint32_t boot_info,
             }
         }
 
+        if (tag->type == 3u) {
+            const struct mb2_module_tag *module =
+                (const struct mb2_module_tag *)tag;
+            uint32_t string_offset;
+            int has_string_terminator = 0;
+
+            if (tag->size < sizeof(*module) + 1u ||
+                module->module_end < module->module_start) {
+                serial_write("Multiboot 2: invalid module tag\n");
+                return 0;
+            }
+            for (string_offset = sizeof(*module);
+                 string_offset < tag->size; string_offset++) {
+                if (((const uint8_t *)tag)[string_offset] == 0u) {
+                    has_string_terminator = 1;
+                    break;
+                }
+            }
+            if (!has_string_terminator ||
+                !x64_memory_map_add_boot_module(module->module_start,
+                                                module->module_end)) {
+                serial_write("Multiboot 2: malformed or excessive module metadata\n");
+                return 0;
+            }
+        }
+
         /* total_size is bounded to the first GiB above, so rounding is safe. */
         next_offset = (offset + tag->size + 7u) & ~7u;
         if (next_offset <= offset || next_offset > total_size) {
@@ -164,6 +199,12 @@ void x64_kmain(uint32_t boot_magic, uint32_t boot_info)
             (uint64_t)(uintptr_t)__kernel_end -
                 (uint64_t)(uintptr_t)__kernel_start)) {
         serial_write("Memory-map normalization failed; halting.\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    if (!x64_pmm_init()) {
+        serial_write("Physical page allocator initialization failed; halting.\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");
         }

@@ -27,10 +27,16 @@ jobs:
     - name: Build x86_64 long-mode checkpoint
       run: make x86_64-iso
 
+    - name: Test x86_64 memory-map normalization
+      run: make x86_64-memory-test
+
+    - name: Build Multiboot module reservation test image
+      run: make x86_64-module-test-iso
+
     - name: Boot-check x86_64 serial console
       run: |
         set +e
-        printf 'help\rinfo\recho ci-console-ok\rhalt\r' | timeout 15s qemu-system-x86_64 \
+        printf 'help\rinfo\rmemmap usable\rpmm\rpmm selftest\recho ci-console-ok\rhalt\r' | timeout 15s qemu-system-x86_64 \
           -cdrom build/x86_64/lolos-x86_64.iso \
           -serial stdio -monitor none -display none -no-reboot -no-shutdown \
           > x86_64-console.log 2>&1
@@ -45,8 +51,63 @@ jobs:
         grep -F "Commands:" x86_64-console.log
         grep -F "Memory-map entries retained:" x86_64-console.log
         grep -F "Normalized usable page ranges:" x86_64-console.log
+        grep -F "Boot modules reserved:" x86_64-console.log
+        grep -F "Normalized usable page ranges after reservations:" x86_64-console.log
+        grep -F "page tables are still bootstrapped separately." x86_64-console.log
+        grep -F "Physical page allocator: initialized" x86_64-console.log
+        grep -F "PMM self-test passed; pages returned and reallocation zeroed." x86_64-console.log
         grep -F "ci-console-ok" x86_64-console.log
         grep -F "CPU halted. Reset the VM to continue." x86_64-console.log
+
+    - name: Boot-check Multiboot module reservations
+      run: |
+        set +e
+        printf 'info\rmodules\rmemmap usable\rhalt\r' | timeout 15s qemu-system-x86_64 \
+          -cdrom build/x86_64/lolos-x86_64-module-test.iso \
+          -serial stdio -monitor none -display none -no-reboot -no-shutdown \
+          > x86_64-module-console.log 2>&1
+        qemu_status=$?
+        set -e
+        cat x86_64-module-console.log
+        if [ "$qemu_status" -ne 124 ]; then
+          echo "QEMU exited unexpectedly with status $qemu_status"
+          exit 1
+        fi
+        grep -F "Boot modules reserved: 1" x86_64-module-console.log
+        grep -F "module[0] base=" x86_64-module-console.log
+        grep -F "page tables are still bootstrapped separately." x86_64-module-console.log
+        grep -F "CPU halted. Reset the VM to continue." x86_64-module-console.log
+        python3 - <<'PY'
+        import re
+
+        output = open("x86_64-module-console.log", encoding="utf-8").read()
+        modules = [
+            (int(base, 16), int(length, 16))
+            for base, length in re.findall(
+                r"module\[\d+\] base=(0x[0-9a-fA-F]+) length=(0x[0-9a-fA-F]+)",
+                output,
+            )
+        ]
+        usable = [
+            (int(base, 16), int(length, 16))
+            for base, length in re.findall(
+                r"^\[\d+\] base=(0x[0-9a-fA-F]+) length=(0x[0-9a-fA-F]+)$",
+                output,
+                re.MULTILINE,
+            )
+        ]
+        if not modules or not usable:
+            raise SystemExit("module or normalized range output missing")
+        page_mask = 4096 - 1
+        for base, length in modules:
+            reserved_start = base & ~page_mask
+            reserved_end = (base + length + page_mask) & ~page_mask
+            for usable_base, usable_length in usable:
+                usable_end = usable_base + usable_length
+                if reserved_start < usable_end and usable_base < reserved_end:
+                    raise SystemExit("a Multiboot module page remains usable")
+        print("Multiboot module pages are excluded from usable memory")
+        PY
 
     - name: Package release ISOs and checksums
       run: make release-assets

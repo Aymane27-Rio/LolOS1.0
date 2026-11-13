@@ -1,0 +1,1 @@
+LolOS Multiboot module reservation smoke test.

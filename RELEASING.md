@@ -11,7 +11,7 @@ COM1; the 32-bit image remains a reference build.
 3. Build both images locally with `make release-assets` and verify
    `cd dist && sha256sum -c SHA256SUMS.txt`.
 4. Boot `dist/lolos-x86_64-checkpoint.iso` in QEMU, confirm the prompt, and run
-   `help`, `memmap`, and `memmap usable`.
+   `help`, `memmap`, `memmap usable`, `modules`, `pmm`, and `pmm selftest`.
 
 ## Publish
 

@@ -6,7 +6,8 @@
 #define PAGE_SIZE 4096u
 #define PAGE_MASK ((uint64_t)PAGE_SIZE - 1u)
 #define LOW_MEMORY_END 0x100000u
-#define MAX_EXCLUSIONS (X64_MEMORY_MAP_MAX_ENTRIES + 3u)
+#define MAX_EXCLUSIONS (X64_MEMORY_MAP_MAX_ENTRIES + \
+                        X64_BOOT_MODULE_MAX_ENTRIES + 3u)
 
 struct interval {
     uint64_t start;
@@ -16,9 +17,36 @@ struct interval {
 struct x64_usable_range
     x64_usable_ranges[X64_USABLE_RANGE_MAX_ENTRIES];
 uint32_t x64_usable_range_count;
+struct x64_boot_module_range
+    x64_boot_module_ranges[X64_BOOT_MODULE_MAX_ENTRIES];
+uint32_t x64_boot_module_range_count;
 
 static struct interval available_intervals[X64_MEMORY_MAP_MAX_ENTRIES];
 static struct interval exclusion_intervals[MAX_EXCLUSIONS];
+
+void x64_memory_map_reset_boot_modules(void)
+{
+    x64_boot_module_range_count = 0u;
+}
+
+int x64_memory_map_add_boot_module(uint64_t start, uint64_t end)
+{
+    struct x64_boot_module_range *module;
+
+    if (end < start) {
+        return 0;
+    }
+    if (start == end) {
+        return 1;
+    }
+    if (x64_boot_module_range_count >= X64_BOOT_MODULE_MAX_ENTRIES) {
+        return 0;
+    }
+    module = &x64_boot_module_ranges[x64_boot_module_range_count++];
+    module->base = start;
+    module->length = end - start;
+    return 1;
+}
 
 static uint64_t align_up_saturating(uint64_t value)
 {
@@ -105,7 +133,7 @@ static int append_normalized_range(uint64_t start, uint64_t end)
     if (start >= end) {
         return 1;
     }
-    if (x64_usable_range_count == X64_USABLE_RANGE_MAX_ENTRIES) {
+    if (x64_usable_range_count >= X64_USABLE_RANGE_MAX_ENTRIES) {
         return 0;
     }
     x64_usable_ranges[x64_usable_range_count].base = start;
@@ -157,6 +185,17 @@ int x64_normalize_usable_ranges(uint64_t boot_info_base,
                                                   region->length,
                                                   &exclusion_count)) {
             serial_write("Memory map normalization: too many or invalid exclusions\n");
+            return 0;
+        }
+    }
+
+    for (index = 0u; index < x64_boot_module_range_count; index++) {
+        const struct x64_boot_module_range *module =
+            &x64_boot_module_ranges[index];
+
+        if (!add_outward_aligned_exclusion(module->base, module->length,
+                                           &exclusion_count)) {
+            serial_write("Memory map normalization: invalid boot module reservation\n");
             return 0;
         }
     }
