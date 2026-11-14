@@ -5,6 +5,8 @@
 
 #define X64_EXCEPTION_COUNT 32u
 #define X64_KERNEL_CODE_SELECTOR 0x08u
+#define X64_KERNEL_DATA_SELECTOR 0x10u
+#define X64_TSS_SELECTOR 0x28u
 #define X64_IDT_INTERRUPT_GATE 0x8Eu
 
 struct x64_idt_entry {
@@ -66,7 +68,7 @@ struct x64_exception_frame {
 typedef void (*x64_exception_stub)(void);
 
 extern x64_exception_stub x64_exception_stub_table[X64_EXCEPTION_COUNT];
-extern unsigned char x64_boot_stack_top[];
+extern unsigned char __x64_syscall_stack_top[];
 extern unsigned char __x64_double_fault_stack_top[];
 extern unsigned char __x64_nmi_stack_top[];
 extern unsigned char __x64_machine_check_stack_top[];
@@ -74,7 +76,7 @@ extern unsigned char __x64_machine_check_stack_top[];
 static struct x64_idt_entry x64_idt[X64_EXCEPTION_COUNT]
     __attribute__((aligned(16)));
 static struct x64_tss x64_tss __attribute__((aligned(16)));
-static uint64_t x64_gdt[5] __attribute__((aligned(16)));
+static uint64_t x64_gdt[7] __attribute__((aligned(16)));
 static volatile uint32_t exception_handler_active;
 
 _Static_assert(sizeof(struct x64_tss) == 104u, "invalid x86_64 TSS size");
@@ -101,12 +103,12 @@ static void set_tss_descriptor(void)
     uint64_t base = (uint64_t)(uintptr_t)&x64_tss;
     uint64_t limit = sizeof(x64_tss) - 1u;
 
-    x64_gdt[3] = (limit & 0xFFFFu) |
+    x64_gdt[5] = (limit & 0xFFFFu) |
                  ((base & 0xFFFFFFu) << 16) |
                  (0x89ULL << 40) |
                  (((limit >> 16) & 0x0Fu) << 48) |
                  (((base >> 24) & 0xFFu) << 56);
-    x64_gdt[4] = base >> 32;
+    x64_gdt[6] = base >> 32;
 }
 
 void x64_exception_init(void)
@@ -115,7 +117,7 @@ void x64_exception_init(void)
     struct x64_descriptor_pointer gdt_pointer;
     uint32_t vector;
 
-    x64_tss.rsp0 = (uint64_t)(uintptr_t)x64_boot_stack_top;
+    x64_tss.rsp0 = (uint64_t)(uintptr_t)__x64_syscall_stack_top;
     x64_tss.ist1 = (uint64_t)(uintptr_t)__x64_double_fault_stack_top;
     x64_tss.ist2 = (uint64_t)(uintptr_t)__x64_nmi_stack_top;
     x64_tss.ist3 = (uint64_t)(uintptr_t)__x64_machine_check_stack_top;
@@ -124,6 +126,8 @@ void x64_exception_init(void)
     x64_gdt[0] = 0u;
     x64_gdt[1] = 0x00AF9B000000FFFFULL;
     x64_gdt[2] = 0x00CF93000000FFFFULL;
+    x64_gdt[3] = 0x00CFF3000000FFFFULL; /* Ring-3 data, accessed. */
+    x64_gdt[4] = 0x00AFFB000000FFFFULL; /* Ring-3 code, accessed. */
     set_tss_descriptor();
 
     for (vector = 0u; vector < X64_EXCEPTION_COUNT; vector++) {
@@ -143,7 +147,7 @@ void x64_exception_init(void)
         "movw %%ax, %%ds\n"
         "movw %%ax, %%es\n"
         "movw %%ax, %%ss\n"
-        "movw $0x18, %%ax\n"
+        "movw $0x28, %%ax\n"
         "ltr %%ax\n"
         :
         : "m"(gdt_pointer)

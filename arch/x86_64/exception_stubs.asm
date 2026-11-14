@@ -69,6 +69,11 @@ x64_exception_common:
     push r14
     push r15
 
+    ; User-mode faults retain user DS/ES; C exception code needs flat kernel data.
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+
     mov rdi, rsp
     and rsp, -16
     call x64_exception_dispatch

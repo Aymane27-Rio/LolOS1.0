@@ -32,8 +32,9 @@ The `x86_64-iso` target builds a separate Multiboot 2 image with a polled COM1
 command prompt. Type `help` for the available commands. The prompt supports
 basic line editing, raw memory-map inspection with `memmap`, normalized
 page-aligned ranges with `memmap usable`, module reservations with `modules`,
-page-table statistics with `paging`, and page allocator status/self-test
-commands with `pmm` and `pmm selftest`. The allocator returns pages below the
+page-table statistics with `paging`, a fixed ring-3 syscall probe with
+`user-test`, and page allocator status/self-test commands with `pmm` and
+`pmm selftest`. The allocator returns pages below the
 1 GiB identity-map limit, zeroes each page, and excludes the kernel, boot-info
 block, low memory, non-usable ranges, and Multiboot modules. It is a single-CPU
 bring-up allocator without interrupt or SMP locking. The x86_64 kernel
@@ -53,6 +54,12 @@ stack-protector instrumentation without a kernel runtime, unwind metadata, and
 the x86_64 red zone. These settings make freestanding assumptions explicit;
 they do not replace bounds checks, privilege checks, memory protection, or code
 review.
+
+The experimental syscall ABI is documented in
+[`arch/x86_64/SYSCALL_ABI.md`](arch/x86_64/SYSCALL_ABI.md). `user-test` enters a
+fixed ring-3 probe that checks `write`, invalid pointers, unknown syscall
+numbers, and `exit`; it does not load arbitrary programs or establish a general
+security boundary.
 
 The x86_64 kernel also installs handlers for processor exception vectors 0–31
 and a TSS with dedicated guarded stacks for double fault, NMI, and machine

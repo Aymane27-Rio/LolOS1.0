@@ -5,6 +5,7 @@
 #include "page_table.h"
 #include "pmm.h"
 #include "serial.h"
+#include "syscall.h"
 
 #define MB2_BOOT_MAGIC 0x36D76289u
 #define IDENTITY_MAP_SIZE 0x40000000u
@@ -224,6 +225,14 @@ void x64_kmain(uint32_t boot_magic, uint32_t boot_info)
         }
     }
     serial_write("LolOS x86_64: runtime page-table layout active.\n");
+    serial_write("LolOS x86_64: initializing syscall ABI.\n");
+    if (!x64_syscall_init()) {
+        serial_write("Syscall ABI initialization failed; halting.\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("LolOS x86_64: syscall ABI initialized.\n");
     serial_write("LolOS x86_64: boot map valid.\n");
     x64_console_run();
     for (;;) {
