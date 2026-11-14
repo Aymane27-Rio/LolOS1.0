@@ -12,6 +12,7 @@ REGULAR_COMMANDS = [
     ("help", b"Commands:"),
     ("info", b"Memory-map entries retained:"),
     ("paging", b"Runtime page-table root:"),
+    ("user-test", b"Ring-3 syscall test passed."),
     ("memmap usable", b"The allocator uses ranges below 1 GiB;"),
     ("pmm", b"Physical page allocator: initialized"),
     ("pmm selftest", b"PMM self-test passed; pages returned and reallocation zeroed."),
@@ -173,12 +174,14 @@ def run_smoke(iso_path, mode, timeout):
             b"LolOS x86_64: boot handoff received.",
             b"LolOS x86_64: memory map normalized.",
             b"LolOS x86_64: runtime page-table layout active.",
+            b"LolOS x86_64: syscall ABI initialized.",
             b"LolOS x86_64: boot map valid.",
         ]
         if mode == "regular":
             required = common_required + [
                 b"Boot modules reserved: 0",
                 b"Normalized usable page ranges:",
+                b"fixed user-test leaves follow W^X.",
                 b"Physical page allocator: initialized",
                 b"ci-console-ok",
             ]

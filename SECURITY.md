@@ -13,7 +13,9 @@ cryptographic identity, and multi-user policy are outside the current scope.
 
 ## Design invariants (required before trusting user code)
 
-- Kernel code, data, stacks, page tables, and boot metadata are supervisor-only.
+- Kernel implementation code/data, stacks, page tables, and boot metadata are
+  supervisor-only; only the fixed probe's separate text/data sections are
+  user-mapped.
 - User mappings are explicit, range-checked, minimally privileged, and cannot
   overwrite kernel or device memory.
 - Writable memory is non-executable where supported; executable memory is not
@@ -36,11 +38,13 @@ cryptographic identity, and multi-user policy are outside the current scope.
 2. Add exception reporting, a 64-bit GDT/TSS and IDT, and dedicated exception
    stacks so CPU faults can be diagnosed without cascading into a triple fault.
 3. Build a runtime identity map from normalized usable ranges and the kernel
-   image. Keep mappings supervisor-only, add stack guard pages, and enforce
-   W^X before enabling user mode. The first-GiB checkpoint implementation is
-   in place; broader physical and virtual address layouts remain future work.
+   image. Keep general mappings supervisor-only, add stack guard pages, and
+   enforce W^X before enabling general user programs. The first-GiB checkpoint
+   implementation is in place; broader physical and virtual address layouts
+   remain future work.
 4. Add a syscall entry path with a documented ABI and safe privilege-transition
-   stacks before enabling user mode.
+   stacks before enabling general user programs. A fixed ring-3 probe now checks
+   the initial `write`/`exit` ABI; it is not a process or isolation boundary.
 5. Port allocation and ELF loading only after range validation, page ownership,
    user address limits, and permission handling are specified and reviewed.
 6. Add malformed-input tests, emulator boot coverage, and targeted fuzzing for
@@ -56,9 +60,9 @@ new 4 KiB identity map for the kernel image and usable pages below 1 GiB. Kernel
 text is read-only and executable, kernel data is writable and NX, and usable
 RAM is supervisor writable and NX. The Multiboot header and read-only kernel
 data are read-only and NX. Low memory, reserved ranges, boot modules,
-boot-info memory, and four stack guard pages are left unmapped. The bootstrap
-stack and the double-fault, NMI, and machine-check IST stacks each have one
-unmapped guard page.
+boot-info memory, and five kernel-stack guard pages are left unmapped. The
+bootstrap stack, syscall stack, and double-fault, NMI, and machine-check IST
+stacks each have one unmapped guard page.
 The checkpoint validates and retains up to 256 raw Multiboot 2 memory-map
 entries. It derives page-aligned usable ranges after merging overlaps and
 excluding non-usable entries, the first MiB, the kernel image, and the boot-info
@@ -72,6 +76,11 @@ for processor exception vectors 0 through 31, logs the exception frame and
 page-fault address, and uses TSS-backed IST stacks for double fault, NMI, and
 machine check. QEMU smoke tests check unmapped low memory and guard pages, write
 protection on kernel text, and NX protection on writable data. The handlers
-halt rather than recover. This checkpoint has no mapping for physical memory
-above 1 GiB, MMIO/device windows, dynamic mappings, user mode, external
-interrupt handling, filesystems, or a security boundary.
+halt rather than recover. A single built-in ring-3 probe has explicit
+read-only executable text, read-only NX data, and an allocated writable NX
+stack page with an absent guard page. It uses two documented syscalls. Its
+`write` implementation checks every user page and copies through a bounded
+kernel buffer; it does not provide general processes, scheduling, or a
+reusable user allocator. This checkpoint has no
+mapping for physical memory above 1 GiB, MMIO/device windows, dynamic mappings,
+external interrupt handling, filesystems, or a security boundary.

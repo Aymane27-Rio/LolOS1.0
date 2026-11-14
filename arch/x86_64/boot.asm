@@ -32,6 +32,7 @@ extern __kernel_end
 extern __x64_double_fault_guard_page
 extern __x64_nmi_guard_page
 extern __x64_machine_check_guard_page
+extern __x64_syscall_stack_guard_page
 
 _start32:
     cli
@@ -79,6 +80,8 @@ _start32:
     cmp eax, __x64_nmi_guard_page
     je .store_unmapped_page
     cmp eax, __x64_machine_check_guard_page
+    je .store_unmapped_page
+    cmp eax, __x64_syscall_stack_guard_page
     je .store_unmapped_page
 
     ; Default low memory and the boot handoff area to supervisor RW+NX.

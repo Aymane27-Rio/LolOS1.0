@@ -6,6 +6,7 @@
 #include "page_table.h"
 #include "pmm.h"
 #include "serial.h"
+#include "syscall.h"
 
 #define CONSOLE_LINE_CAPACITY 128u
 
@@ -235,7 +236,7 @@ static void show_page_tables(void)
     serial_write_u32(stats.usable_pages);
     serial_write("\nPage-table pages allocated: ");
     serial_write_u32(stats.table_pages);
-    serial_write("\nAll leaves are supervisor-only; writable leaves are NX.\n");
+    serial_write("\nOrdinary kernel/RAM leaves are supervisor-only; fixed user-test leaves follow W^X.\n");
 }
 
 static void execute_command(char *line)
@@ -258,6 +259,7 @@ static void execute_command(char *line)
                      "  modules       List reserved Multiboot modules\n"
                      "  pmm [selftest] Show or test the physical page allocator\n"
                      "  paging        Show active page-table layout statistics\n"
+                     "  user-test     Run the fixed ring-3 syscall probe\n"
                      "  exception-test ud|pf|lowmem|guard|ro|nx|module Test protection\n"
                      "  echo TEXT     Print TEXT\n"
                      "  clear         Clear the serial terminal\n"
@@ -273,7 +275,7 @@ static void execute_command(char *line)
                      "Input/output: polled COM1 serial\n"
                      "Memory-map entries retained: ");
         serial_write_u32(x64_memory_map_entry_count);
-        serial_write("\nThis kernel runs in ring 0 and has no user isolation.\n");
+        serial_write("\nKernel services run in ring 0; user mode is a fixed test only.\n");
         serial_write("Boot modules reserved: ");
         serial_write_u32(x64_boot_module_range_count);
         serial_write("\n");
@@ -330,6 +332,19 @@ static void execute_command(char *line)
             return;
         }
         show_page_tables();
+        return;
+    }
+    if (match_command(line, "user-test", &arguments)) {
+        if (*arguments != '\0') {
+            serial_write("Usage: user-test\n");
+            return;
+        }
+        serial_write("Entering the fixed ring-3 syscall test.\n");
+        if (x64_user_test_run()) {
+            serial_write("Ring-3 syscall test passed.\n");
+        } else {
+            serial_write("Ring-3 syscall test failed.\n");
+        }
         return;
     }
     if (match_command(line, "exception-test", &arguments)) {
